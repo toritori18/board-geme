@@ -7,6 +7,17 @@
 
 このファイルはClaude Codeがプロジェクトを理解するためのガイドです。
 
+## 技術スタック
+
+| 役割 | 技術 |
+|---|---|
+| フロントエンド | Next.js (React), Tailwind CSS |
+| バックエンド | Next.js API Routes / Server Actions |
+| DB・認証 | Supabase (PostgreSQL) |
+| ホスティング | Vercel |
+
+詳細は [docs/tech-stack.md](docs/tech-stack.md) を参照してください。
+
 ## Git運用ルール
 
 Gitに関するルールは以下のファイルを参照してください:
@@ -22,6 +33,10 @@ board-geme/
 ├── package.json            # 依存関係・スクリプト
 ├── .gitignore
 ├── .env.example            # 環境変数のサンプル
+├── .claude/                # Claude Code設定
+│   ├── commands/           # カスタムスラッシュコマンド
+│   │   └── push.md         # /push コマンド定義
+│   └── push.ps1            # pushコマンドが実行するスクリプト
 ├── src/                    # ソースコード
 │   ├── components/         # UIコンポーネント
 │   ├── pages/              # ページ
@@ -31,6 +46,7 @@ board-geme/
 ├── public/                 # 公開静的ファイル
 ├── docs/                   # ドキュメント
 │   ├── git-rules.md        # Git運用ルール
+│   ├── tech-stack.md       # 技術スタック
 │   ├── setup.md            # セットアップガイド
 │   └── contributing.md     # コントリビュートガイド
 └── tests/                  # テスト
