@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if (-not (Test-Path .env.local)) { Copy-Item .env.example .env.local }",
+            "shell": "powershell"
+          }
+        ]
+      }
+    ]
+  }
+}
