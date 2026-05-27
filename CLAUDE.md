@@ -35,7 +35,7 @@ board-geme/
 ├── .env.example            # 環境変数のサンプル
 ├── .claude/                # Claude Code設定
 │   ├── commands/           # カスタムスラッシュコマンド
-│   │   └── push.md         # /push コマンド定義
+│   │   └── git/push.md     # /git push コマンド定義
 │   └── push.ps1            # pushコマンドが実行するスクリプト
 ├── src/                    # ソースコード
 │   ├── components/         # UIコンポーネント
