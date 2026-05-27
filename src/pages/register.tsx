@@ -2,10 +2,12 @@ import { useState, FormEvent } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -13,14 +15,22 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
 
-    if (!email || !password) {
-      setError("メールアドレスとパスワードを入力してください。");
+    if (!name || !email || !password || !confirm) {
+      setError("すべての項目を入力してください。");
+      return;
+    }
+    if (password !== confirm) {
+      setError("パスワードが一致しません。");
+      return;
+    }
+    if (password.length < 8) {
+      setError("パスワードは8文字以上で入力してください。");
       return;
     }
 
     setLoading(true);
-    // Phase 1: mock login — Supabase auth will be wired in a later phase
-    await new Promise((r) => setTimeout(r, 600));
+    // Phase 1: mock register — Supabase auth will be wired in a later phase
+    await new Promise((r) => setTimeout(r, 800));
     setLoading(false);
     router.push("/ranking");
   };
@@ -35,17 +45,26 @@ export default function LoginPage() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">ボードゲームランキング</h1>
-          <p className="text-sm text-gray-500 mt-1">お気に入りのボードゲームを評価しよう</p>
+          <p className="text-sm text-gray-500 mt-1">新規アカウントを作成する</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-lg p-8">
-          <h2 className="text-lg font-semibold text-gray-800 mb-6">ログイン</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-6">会員登録</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                メールアドレス
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">ユーザー名</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="ボードゲーム太郎"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">メールアドレス</label>
               <input
                 type="email"
                 value={email}
@@ -56,14 +75,23 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                パスワード
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">パスワード</label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="8文字以上"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">パスワード（確認）</label>
+              <input
+                type="password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                placeholder="もう一度入力"
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
               />
             </div>
@@ -77,14 +105,14 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-semibold py-2.5 rounded-lg transition text-sm"
             >
-              {loading ? "ログイン中..." : "ログイン"}
+              {loading ? "登録中..." : "アカウントを作成"}
             </button>
           </form>
 
           <p className="text-center text-xs text-gray-400 mt-6">
-            アカウントをお持ちでない方は
-            <Link href="/register" className="text-indigo-500 hover:underline ml-1">
-              新規登録
+            すでにアカウントをお持ちの方は
+            <Link href="/" className="text-indigo-500 hover:underline ml-1">
+              ログイン
             </Link>
           </p>
         </div>
