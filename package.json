@@ -9,17 +9,21 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2",
     "next": "^14",
     "react": "^18",
-    "react-dom": "^18",
-    "@supabase/supabase-js": "^2"
+    "react-dom": "^18"
   },
   "devDependencies": {
-    "typescript": "^5",
-    "@types/react": "^18",
     "@types/node": "^20",
-    "tailwindcss": "^3",
+    "@types/react": "^18",
+    "@typescript-eslint/eslint-plugin": "^8.60.0",
+    "@typescript-eslint/parser": "^8.60.0",
+    "autoprefixer": "^10",
+    "eslint": "^8",
+    "eslint-config-next": "^14",
     "postcss": "^8",
-    "autoprefixer": "^10"
+    "tailwindcss": "^3",
+    "typescript": "^5"
   }
 }

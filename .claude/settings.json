@@ -2,7 +2,16 @@
   "permissions": {
     "allow": [
       "Write",
-      "Edit"
+      "Edit",
+      "Read",
+      "Glob",
+      "Grep",
+      "PowerShell(.\\.claude\\push.ps1 *)",
+      "PowerShell(npm run *)",
+      "PowerShell(git status)",
+      "PowerShell(git log *)",
+      "PowerShell(git diff *)",
+      "PowerShell(git add *)"
     ]
   },
   "hooks": {

@@ -51,3 +51,15 @@ board-geme/
 │   └── contributing.md     # コントリビュートガイド
 └── tests/                  # テスト
 ```
+
+## コーディング規約・禁止事項
+
+詳細は [docs/contributing.md](docs/contributing.md) を参照してください。
+
+コードを書く際に特に注意すること：
+
+- インポートパスは必ず `@/` エイリアスを使用する（相対パス `../../` は使わない）
+- コメントは日本語で書く
+- 現在 Pages Router（`src/pages/`）を使用中。App Router への移行は行わない
+- `any` 型は使用禁止（ESLint により自動検出される）
+- APIキー・シークレットはコードに直書きせず、`.env.local` 経由で参照する
