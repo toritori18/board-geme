@@ -34,16 +34,14 @@ board-geme/
 ├── .gitignore
 ├── .env.example            # 環境変数のサンプル
 ├── .claude/                # Claude Code設定
-│   ├── commands/           # カスタムスラッシュコマンド
-│   │   └── git/push.md     # /git push コマンド定義
-│   └── push.ps1            # pushコマンドが実行するスクリプト
+│   ├── settings.json       # 権限・フック設定
+│   └── commands/           # カスタムスラッシュコマンド（.md + 実行スクリプト）
 ├── src/                    # ソースコード
 │   ├── components/         # UIコンポーネント
 │   ├── pages/              # ページ
 │   ├── utils/              # ユーティリティ
 │   ├── assets/             # 画像・フォントなどの静的リソース
 │   └── styles/             # スタイルシート
-├── public/                 # 公開静的ファイル
 ├── docs/                   # ドキュメント
 │   ├── git-rules.md        # Git運用ルール
 │   ├── tech-stack.md       # 技術スタック

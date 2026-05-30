@@ -6,7 +6,7 @@
       "Read",
       "Glob",
       "Grep",
-      "PowerShell(.\\.claude\\push.ps1 *)",
+      "PowerShell(.\\.claude\\commands\\git\\push.ps1 *)",
       "PowerShell(npm run *)",
       "PowerShell(git status)",
       "PowerShell(git log *)",
