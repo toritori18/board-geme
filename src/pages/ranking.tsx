@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useRouter } from "next/router";
 import games from "@/data/games.json";
 import GameCard from "@/components/GameCard";
 import type { Game } from "@/types/game";
@@ -6,6 +7,7 @@ import type { Game } from "@/types/game";
 const sorted = [...(games as Game[])].sort((a, b) => b.rating - a.rating || b.votes - a.votes);
 
 export default function RankingPage() {
+  const router = useRouter();
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50">
       <header className="bg-white shadow-sm sticky top-0 z-10">
@@ -20,7 +22,10 @@ export default function RankingPage() {
               ボードゲームランキング
             </span>
           </Link>
-          <button className="text-sm text-gray-500 hover:text-indigo-600 transition">
+          <button
+            onClick={() => router.push("/")}
+            className="text-sm text-gray-500 hover:text-indigo-600 transition"
+          >
             ログアウト
           </button>
         </div>

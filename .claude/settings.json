@@ -11,7 +11,11 @@
       "PowerShell(git status)",
       "PowerShell(git log *)",
       "PowerShell(git diff *)",
-      "PowerShell(git add *)"
+      "PowerShell(git add *)",
+      "PowerShell(Get-NetTCPConnection *)",
+      "PowerShell(Stop-Process *)",
+      "PowerShell(Start-Sleep *)",
+      "PowerShell($conn = Get-NetTCPConnection *)"
     ]
   },
   "hooks": {
