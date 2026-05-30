@@ -54,7 +54,7 @@ export default function LoginPage() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">ボードゲームランキング</h1>
-          <p className="text-sm text-gray-500 mt-1">お気に入りのボードゲームを評価しよう</p>
+          <p className="text-sm text-gray-500 mt-1">お気に入りのボードゲームのランキングを確認しよう</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-lg p-8">

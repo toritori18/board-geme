@@ -9,5 +9,6 @@ export type Game = {
   minAge: number;
   rating: number;
   votes: number;
+  difficulty: string;
   tags: string[];
 };

@@ -7,15 +7,13 @@
       "Glob",
       "Grep",
       "PowerShell(.\\.claude\\commands\\git\\push.ps1 *)",
+      "PowerShell(.\\.claude\\commands\\server\\start.ps1)",
+      "PowerShell(.\\.claude\\commands\\server\\stop.ps1)",
       "PowerShell(npm run *)",
       "PowerShell(git status)",
       "PowerShell(git log *)",
       "PowerShell(git diff *)",
-      "PowerShell(git add *)",
-      "PowerShell(Get-NetTCPConnection *)",
-      "PowerShell(Stop-Process *)",
-      "PowerShell(Start-Sleep *)",
-      "PowerShell($conn = Get-NetTCPConnection *)"
+      "PowerShell(git add *)"
     ]
   },
   "hooks": {
