@@ -4,6 +4,7 @@ import type { Game } from "@/types/game";
 type Props = {
   game: Game;
   rank: number;
+  showVotes?: boolean;
 };
 
 function StarRating({ rating }: { rating: number }) {
@@ -26,7 +27,7 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
-export default function GameCard({ game, rank }: Props) {
+export default function GameCard({ game, rank, showVotes = true }: Props) {
   const rankColors: Record<number, string> = {
     1: "bg-yellow-400 text-yellow-900",
     2: "bg-gray-300 text-gray-700",
@@ -44,12 +45,11 @@ export default function GameCard({ game, rank }: Props) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <h2 className="text-lg font-bold text-gray-900">{game.name}</h2>
-          <span className="text-sm text-gray-400">{game.nameEn}</span>
         </div>
         <p className="text-sm text-gray-500 mt-1">{game.shortDescription}</p>
         <div className="mt-2 flex items-center gap-4 flex-wrap">
           <StarRating rating={game.rating} />
-          <span className="text-xs text-gray-400">{game.votes.toLocaleString()}票</span>
+          {showVotes && <span className="text-xs text-gray-400">{game.votes.toLocaleString()}票</span>}
           <span className="text-xs text-gray-400">{game.players}</span>
           <span className="text-xs text-gray-400">{game.playTime}</span>
         </div>

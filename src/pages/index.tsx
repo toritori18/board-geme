@@ -127,6 +127,7 @@ export default function LoginPage() {
               新規登録
             </Link>
           </p>
+
         </div>
       </div>
     </div>

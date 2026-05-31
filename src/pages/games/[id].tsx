@@ -1,9 +1,20 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
-import gamesData from "@/data/games.json";
+import type { GetServerSideProps } from "next";
 import type { Game } from "@/types/game";
+import { fetchGameById } from "@/utils/game-mapper";
 
-const games = gamesData as Game[];
+type Props = {
+  game: Game | null;
+  rank: number;
+};
+
+export const getServerSideProps: GetServerSideProps<Props> = async ({ params }) => {
+  const id = Number(params?.id);
+  if (isNaN(id)) return { props: { game: null, rank: 0 } };
+  const { game, bggRank } = await fetchGameById(id);
+  return { props: { game, rank: bggRank } };
+};
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -23,10 +34,8 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
-export default function GameDetailPage() {
+export default function GameDetailPage({ game, rank }: Props) {
   const router = useRouter();
-  const { id } = router.query;
-  const game = games.find((g) => g.id === Number(id));
 
   if (!game) {
     return (
@@ -40,11 +49,6 @@ export default function GameDetailPage() {
       </div>
     );
   }
-
-  const rank =
-    [...games]
-      .sort((a, b) => b.rating - a.rating || b.votes - a.votes)
-      .findIndex((g) => g.id === game.id) + 1;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50">
@@ -75,7 +79,6 @@ export default function GameDetailPage() {
             <div className="text-center text-white">
               <p className="text-6xl font-black opacity-20">#{rank}</p>
               <p className="text-3xl font-bold -mt-4">{game.name}</p>
-              <p className="text-sm opacity-70 mt-1">{game.nameEn}</p>
             </div>
           </div>
 
@@ -117,6 +120,24 @@ export default function GameDetailPage() {
                   </span>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+        {/* AIおすすめセクション（準備中） */}
+        <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-lg">✨</span>
+              <h2 className="text-sm font-semibold text-gray-700">AIおすすめのボードゲーム</h2>
+              <span className="text-xs bg-indigo-100 text-indigo-500 px-2 py-0.5 rounded-full font-medium">準備中</span>
+            </div>
+            <div className="flex flex-col items-center justify-center py-8 text-center gap-3">
+              <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-indigo-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+              </div>
+              <p className="text-sm text-gray-400">このゲームに似たおすすめを<br />AIが提案する機能を準備中です</p>
             </div>
           </div>
         </div>

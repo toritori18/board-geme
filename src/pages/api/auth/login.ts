@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/utils/supabase-admin";
 type MUser = {
   id: string;
   email: string;
-  name: string;
+  user_name: string;
   password_hash: string;
 };
 
@@ -38,7 +38,7 @@ export default async function handler(
 
   const { data: user, error } = await supabaseAdmin
     .from("M_USER")
-    .select("id, email, name, password_hash")
+    .select("id, email, user_name, password_hash")
     .eq("email", email)
     .single<MUser>();
 
@@ -64,7 +64,7 @@ export default async function handler(
     user: {
       id: user.id,
       email: user.email,
-      name: user.name,
+      name: user.user_name,
     },
   });
 }

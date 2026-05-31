@@ -1,15 +1,11 @@
-import { useState } from "react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import games from "@/data/games.json";
+import type { GetServerSideProps } from "next";
 import GameCard from "@/components/GameCard";
 import type { Game } from "@/types/game";
+import { fetchGames } from "@/utils/game-mapper";
 
 type Tab = "search" | "ranking";
-
-const allGames = games as Game[];
-const sorted = [...allGames].sort((a, b) => b.rating - a.rating || b.votes - a.votes);
-const allGenres = Array.from(new Set(allGames.flatMap((g) => g.tags)));
 
 const PLAYER_OPTIONS = [
   { value: "1", label: "1人" },
@@ -46,63 +42,141 @@ function parsePlayTime(playTime: string): { min: number; max: number } {
   return { min: v, max: v };
 }
 
-export default function RankingPage() {
-  const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>("search");
+function applyFilters(
+  games: Game[],
+  players: string,
+  time: string,
+  difficulty: string,
+  genre: string
+): Game[] {
+  return games.filter((game) => {
+    if (players) {
+      const { min, max } = parsePlayers(game.players);
+      const count = parseInt(players);
+      if (count === 5) { if (max < 5) return false; }
+      else { if (min > count || max < count) return false; }
+    }
+    if (time) {
+      const { min, max } = parsePlayTime(game.playTime);
+      if (time === "30" && max > 30) return false;
+      if (time === "60" && (max < 31 || min > 60)) return false;
+      if (time === "120" && (max < 61 || min > 120)) return false;
+      if (time === "121" && max < 120) return false;
+    }
+    if (difficulty && game.difficulty !== difficulty) return false;
+    if (genre && !game.tags.includes(genre)) return false;
+    return true;
+  });
+}
 
-  // 検索条件
+function applySearchFilters(
+  games: Game[],
+  q: string,
+  players: string,
+  time: string,
+  difficulty: string,
+  genre: string
+): Game[] {
+  const base = applyFilters(games, players, time, difficulty, genre);
+  if (!q.trim()) return base;
+  const lq = q.trim().toLowerCase();
+  return base.filter(
+    (game) =>
+      game.name.includes(q.trim()) ||
+      game.nameEn.toLowerCase().includes(lq) ||
+      game.shortDescription.includes(q.trim()) ||
+      game.tags.some((t) => t.includes(q.trim()))
+  );
+}
+
+const STORAGE_KEY = "rankingFilters";
+
+type SavedFilters = {
+  query: string;
+  playerFilter: string;
+  playTimeFilter: string;
+  difficultyFilter: string;
+  genreFilter: string;
+  rankPlayerFilter: string;
+  rankPlayTimeFilter: string;
+  rankDifficultyFilter: string;
+  rankGenreFilter: string;
+};
+
+type Props = {
+  allGames: Game[];
+  initialTab: Tab;
+};
+
+export const getServerSideProps: GetServerSideProps<Props> = async ({ query }) => {
+  const allGames = await fetchGames();
+  return {
+    props: {
+      allGames,
+      initialTab: query.tab === "ranking" ? "ranking" : "search",
+    },
+  };
+};
+
+export default function RankingPage({ allGames, initialTab }: Props) {
+  const router = useRouter();
+
+  const sorted = [...allGames].sort((a, b) => b.rating - a.rating || b.votes - a.votes);
+  const allGenres = Array.from(new Set(allGames.flatMap((g) => g.tags)));
+
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
+
+  // 検索フィルター
   const [query, setQuery] = useState("");
   const [playerFilter, setPlayerFilter] = useState("");
   const [playTimeFilter, setPlayTimeFilter] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState("");
   const [genreFilter, setGenreFilter] = useState("");
-
-  // 検索結果（ボタンを押すまで null）
   const [results, setResults] = useState<Game[] | null>(null);
 
+  // ランキングフィルター
+  const [rankPlayerFilter, setRankPlayerFilter] = useState("");
+  const [rankPlayTimeFilter, setRankPlayTimeFilter] = useState("");
+  const [rankDifficultyFilter, setRankDifficultyFilter] = useState("");
+  const [rankGenreFilter, setRankGenreFilter] = useState("");
+
+  // sessionStorageからフィルター状態を復元（詳細画面から戻ったとき用）
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      if (!saved) return;
+      const state: SavedFilters = JSON.parse(saved);
+      setQuery(state.query ?? "");
+      setPlayerFilter(state.playerFilter ?? "");
+      setPlayTimeFilter(state.playTimeFilter ?? "");
+      setDifficultyFilter(state.difficultyFilter ?? "");
+      setGenreFilter(state.genreFilter ?? "");
+      setRankPlayerFilter(state.rankPlayerFilter ?? "");
+      setRankPlayTimeFilter(state.rankPlayTimeFilter ?? "");
+      setRankDifficultyFilter(state.rankDifficultyFilter ?? "");
+      setRankGenreFilter(state.rankGenreFilter ?? "");
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // フィルター状態をsessionStorageに保存
+  useEffect(() => {
+    const state: SavedFilters = {
+      query, playerFilter, playTimeFilter, difficultyFilter, genreFilter,
+      rankPlayerFilter, rankPlayTimeFilter, rankDifficultyFilter, rankGenreFilter,
+    };
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [query, playerFilter, playTimeFilter, difficultyFilter, genreFilter,
+      rankPlayerFilter, rankPlayTimeFilter, rankDifficultyFilter, rankGenreFilter]);
+
+  // タブのみURLに同期（共有・ブックマーク対応）
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab);
+    void router.replace({ pathname: "/ranking", query: { tab } }, undefined, { shallow: true });
+  };
+
   const handleSearch = () => {
-    const filtered = allGames.filter((game) => {
-      // テキスト検索
-      if (query.trim()) {
-        const q = query.trim();
-        const hit =
-          game.name.includes(q) ||
-          game.nameEn.toLowerCase().includes(q.toLowerCase()) ||
-          game.shortDescription.includes(q) ||
-          game.tags.some((t) => t.includes(q));
-        if (!hit) return false;
-      }
-
-      // プレイ人数
-      if (playerFilter) {
-        const { min, max } = parsePlayers(game.players);
-        const count = parseInt(playerFilter);
-        if (count === 5) {
-          if (max < 5) return false;
-        } else {
-          if (min > count || max < count) return false;
-        }
-      }
-
-      // 所要時間
-      if (playTimeFilter) {
-        const { min, max } = parsePlayTime(game.playTime);
-        if (playTimeFilter === "30" && max > 30) return false;
-        if (playTimeFilter === "60" && (max < 31 || min > 60)) return false;
-        if (playTimeFilter === "120" && (max < 61 || min > 120)) return false;
-        if (playTimeFilter === "121" && max < 120) return false;
-      }
-
-      // 難易度
-      if (difficultyFilter && game.difficulty !== difficultyFilter) return false;
-
-      // ジャンル
-      if (genreFilter && !game.tags.includes(genreFilter)) return false;
-
-      return true;
-    });
-
-    setResults(filtered);
+    setResults(applySearchFilters(allGames, query, playerFilter, playTimeFilter, difficultyFilter, genreFilter));
   };
 
   const handleReset = () => {
@@ -114,12 +188,15 @@ export default function RankingPage() {
     setResults(null);
   };
 
+  const filteredRanking = applyFilters(sorted, rankPlayerFilter, rankPlayTimeFilter, rankDifficultyFilter, rankGenreFilter);
+  const isRankingFiltered = rankPlayerFilter || rankPlayTimeFilter || rankDifficultyFilter || rankGenreFilter;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50">
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
           <button
-            onClick={() => { setActiveTab("search"); handleReset(); }}
+            onClick={() => { handleTabChange("search"); handleReset(); }}
             className="flex items-center gap-2 hover:opacity-80 transition"
           >
             <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
@@ -145,7 +222,7 @@ export default function RankingPage() {
               return (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => handleTabChange(tab)}
                   className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
                     activeTab === tab
                       ? "border-indigo-600 text-indigo-600"
@@ -168,20 +245,12 @@ export default function RankingPage() {
               <p className="text-sm text-gray-500 mt-1">条件を選んで検索ボタンを押してください</p>
             </div>
 
-            {/* 検索フォーム */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6 space-y-4">
-              {/* キーワード */}
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
-                  キーワード
-                </label>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">キーワード</label>
                 <div className="relative">
-                  <svg
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
                   </svg>
                   <input
@@ -195,95 +264,53 @@ export default function RankingPage() {
                 </div>
               </div>
 
-              {/* フィルター 2列グリッド */}
               <div className="grid grid-cols-2 gap-3">
-                {/* プレイ人数 */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
-                    プレイ人数
-                  </label>
-                  <select
-                    value={playerFilter}
-                    onChange={(e) => setPlayerFilter(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white"
-                  >
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">プレイ人数</label>
+                  <select value={playerFilter} onChange={(e) => setPlayerFilter(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
                     <option value="">すべて</option>
-                    {PLAYER_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
+                    {PLAYER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
-
-                {/* 所要時間 */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
-                    所要時間
-                  </label>
-                  <select
-                    value={playTimeFilter}
-                    onChange={(e) => setPlayTimeFilter(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white"
-                  >
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">所要時間</label>
+                  <select value={playTimeFilter} onChange={(e) => setPlayTimeFilter(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
                     <option value="">すべて</option>
-                    {PLAY_TIME_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
+                    {PLAY_TIME_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
-
-                {/* 難易度 */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
-                    難易度
-                  </label>
-                  <select
-                    value={difficultyFilter}
-                    onChange={(e) => setDifficultyFilter(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white"
-                  >
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">難易度</label>
+                  <select value={difficultyFilter} onChange={(e) => setDifficultyFilter(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
                     <option value="">すべて</option>
-                    {DIFFICULTY_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
+                    {DIFFICULTY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
-
-                {/* ジャンル */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
-                    ジャンル
-                  </label>
-                  <select
-                    value={genreFilter}
-                    onChange={(e) => setGenreFilter(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white"
-                  >
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">ジャンル</label>
+                  <select value={genreFilter} onChange={(e) => setGenreFilter(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
                     <option value="">すべて</option>
-                    {allGenres.map((genre) => (
-                      <option key={genre} value={genre}>{genre}</option>
-                    ))}
+                    {allGenres.map((genre) => <option key={genre} value={genre}>{genre}</option>)}
                   </select>
                 </div>
               </div>
 
-              {/* ボタン */}
               <div className="flex gap-2 pt-1">
-                <button
-                  onClick={handleSearch}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition text-sm"
-                >
+                <button onClick={handleSearch}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition text-sm">
                   検索
                 </button>
-                <button
-                  onClick={handleReset}
-                  className="px-4 py-2.5 border border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300 rounded-lg transition text-sm"
-                >
+                <button onClick={handleReset}
+                  className="px-4 py-2.5 border border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300 rounded-lg transition text-sm">
                   リセット
                 </button>
               </div>
             </div>
 
-            {/* 検索結果 */}
             {results !== null && (
               <div>
                 <p className="text-sm text-gray-500 mb-3">
@@ -294,7 +321,7 @@ export default function RankingPage() {
                 {results.length > 0 && (
                   <div className="space-y-3">
                     {results.map((game, index) => (
-                      <GameCard key={game.id} game={game} rank={index + 1} />
+                      <GameCard key={game.id} game={game} rank={index + 1} showVotes={false} />
                     ))}
                   </div>
                 )}
@@ -310,8 +337,56 @@ export default function RankingPage() {
               <p className="text-sm text-gray-500 mt-1">評価数・スコアをもとに集計</p>
             </div>
 
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">プレイ人数</label>
+                  <select value={rankPlayerFilter} onChange={(e) => setRankPlayerFilter(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
+                    <option value="">すべて</option>
+                    {PLAYER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">所要時間</label>
+                  <select value={rankPlayTimeFilter} onChange={(e) => setRankPlayTimeFilter(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
+                    <option value="">すべて</option>
+                    {PLAY_TIME_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">難易度</label>
+                  <select value={rankDifficultyFilter} onChange={(e) => setRankDifficultyFilter(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
+                    <option value="">すべて</option>
+                    {DIFFICULTY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">ジャンル</label>
+                  <select value={rankGenreFilter} onChange={(e) => setRankGenreFilter(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
+                    <option value="">すべて</option>
+                    {allGenres.map((genre) => <option key={genre} value={genre}>{genre}</option>)}
+                  </select>
+                </div>
+              </div>
+              {isRankingFiltered && (
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                  <p className="text-sm text-gray-500">{filteredRanking.length}件</p>
+                  <button
+                    onClick={() => { setRankPlayerFilter(""); setRankPlayTimeFilter(""); setRankDifficultyFilter(""); setRankGenreFilter(""); }}
+                    className="text-xs text-indigo-600 hover:underline"
+                  >
+                    リセット
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-3">
-              {sorted.map((game, index) => (
+              {filteredRanking.map((game, index) => (
                 <GameCard key={game.id} game={game} rank={index + 1} />
               ))}
             </div>
