@@ -6,9 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed:test": "node --env-file=.env.local --import tsx/esm scripts/test-seed.ts",
+    "seed:submit": "node --env-file=.env.local --import tsx/esm scripts/submit-batch.ts",
+    "seed:collect": "node --env-file=.env.local --import tsx/esm scripts/collect-batch.ts",
+    "seed:insert": "node --env-file=.env.local --import tsx/esm scripts/insert-to-db.ts",
+    "seed:generate-sql": "node --import tsx/esm scripts/generate-sql.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
     "@supabase/supabase-js": "^2",
     "bcryptjs": "^3.0.3",
     "next": "^14",
@@ -16,6 +22,7 @@
     "react-dom": "^18"
   },
   "devDependencies": {
+    "tsx": "^4.19.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^18",

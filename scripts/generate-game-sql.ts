@@ -1,0 +1,209 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+type GameRecord = Record<string, string>;
+
+function parseCSV(filePath: string): GameRecord[] {
+  const content = fs.readFileSync(filePath, "utf-8");
+  const lines = content.split("\n").filter((line) => line.trim());
+  const headers = lines[0].split(";").map((h) => h.trim());
+  return lines.slice(1).map((line) => {
+    const values = line.split(";");
+    return Object.fromEntries(headers.map((h, i) => [h, (values[i] ?? "").trim()]));
+  });
+}
+
+function parseNum(value: string): number | null {
+  const n = parseFloat(value.replace(",", "."));
+  return isNaN(n) ? null : n;
+}
+
+function parseIntVal(value: string): number | null {
+  const n = parseInt(value, 10);
+  return isNaN(n) ? null : n;
+}
+
+function lit(value: string | number | null): string {
+  if (value === null) return "NULL";
+  if (typeof value === "number") return value.toString();
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+function arrLit(ids: number[]): string {
+  return ids.length > 0 ? `ARRAY[${ids.join(",")}]` : "NULL";
+}
+
+function splitList(raw: string): string[] {
+  return raw ? raw.split(",").map((s) => s.trim()).filter(Boolean) : [];
+}
+
+// 生バッチ結果から game_id → short_description_ja のマップを生成
+function parseBatchResults(filePath: string): Record<string, string> {
+  const raw = JSON.parse(fs.readFileSync(filePath, "utf-8")) as Array<{
+    custom_id: string;
+    result: { type: string; message?: { content: Array<{ type: string; text: string }> } };
+  }>;
+
+  const map: Record<string, string> = {};
+  let parsed = 0;
+  let failed = 0;
+
+  for (const entry of raw) {
+    if (entry.result.type !== "succeeded") { failed++; continue; }
+    const text = entry.result.message?.content[0]?.text ?? "";
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("JSON not found");
+      const obj = JSON.parse(jsonMatch[0]) as { short_description_ja?: string };
+      const gameId = entry.custom_id.replace("game-", "");
+      map[gameId] = obj.short_description_ja ?? "";
+      parsed++;
+    } catch { failed++; }
+  }
+
+  console.log(`バッチ結果パース: 成功 ${parsed}件 / 失敗 ${failed}件`);
+  return map;
+}
+
+function main() {
+  const csvPath   = path.join(__dirname, "../data/bgg_dataset.csv");
+  const batchPath = path.join(__dirname, "../data/mechanics-translations_sample.json");
+  const transPath = path.join(__dirname, "../data/mechanics-translations.json");
+  const outPath   = path.join(__dirname, "../docs/sql/insert_game_data.sql");
+
+  console.log("ファイル読み込み中...");
+  const games    = parseCSV(csvPath);
+  const descMap  = parseBatchResults(batchPath);
+  const transMap = JSON.parse(fs.readFileSync(transPath, "utf-8")) as Record<string, string>;
+
+  // Mechanics → ID割り当て（ソート済み）
+  const mechanicsSet = new Set<string>();
+  for (const g of games) splitList(g["Mechanics"]).forEach((m) => mechanicsSet.add(m));
+  const mechanics = [...mechanicsSet].sort();
+  const mechanicsId: Record<string, number> = Object.fromEntries(mechanics.map((m, i) => [m, i + 1]));
+
+  // Domains → ID割り当て
+  const domainsSet = new Set<string>();
+  for (const g of games) splitList(g["Domains"]).forEach((d) => domainsSet.add(d));
+  const domains = [...domainsSet].sort();
+  const domainsId: Record<string, number> = Object.fromEntries(domains.map((d, i) => [d, i + 1]));
+
+  const out: string[] = [];
+  out.push("-- INSERT SQL generated from mechanics-translations_sample.json");
+  out.push(`-- Generated: ${new Date().toISOString()}`);
+  out.push("-- Source: data/bgg_dataset.csv + data/mechanics-translations_sample.json");
+  out.push("");
+
+  // ----------------------------------------------------------------
+  // M_GAME_KIND
+  // ----------------------------------------------------------------
+  out.push("-- ============================================================");
+  out.push("-- M_GAME_KIND: ゲームメカニクスマスタ");
+  out.push("-- ============================================================");
+
+  const CHUNK_KIND = 200;
+  for (let i = 0; i < mechanics.length; i += CHUNK_KIND) {
+    const chunk = mechanics.slice(i, i + CHUNK_KIND);
+    out.push(`INSERT INTO public."M_GAME_KIND" (id, game_kind_name, game_kind_name_ja) VALUES`);
+    chunk.forEach((m, j) => {
+      const id = mechanicsId[m];
+      const ja = transMap[m] ?? m;
+      const sep = j < chunk.length - 1 ? "," : "";
+      out.push(`  (${id}, ${lit(m)}, ${lit(ja)})${sep}`);
+    });
+    out.push(`ON CONFLICT (game_kind_name) DO UPDATE SET game_kind_name_ja = EXCLUDED.game_kind_name_ja;`);
+    out.push("");
+  }
+  out.push(`SELECT setval(pg_get_serial_sequence('"M_GAME_KIND"', 'id'), ${mechanics.length});`);
+  out.push("");
+
+  // ----------------------------------------------------------------
+  // M_GAME_GENRE
+  // ----------------------------------------------------------------
+  out.push("-- ============================================================");
+  out.push("-- M_GAME_GENRE: ゲームジャンルマスタ");
+  out.push("-- ============================================================");
+
+  const CHUNK_GENRE = 200;
+  for (let i = 0; i < domains.length; i += CHUNK_GENRE) {
+    const chunk = domains.slice(i, i + CHUNK_GENRE);
+    out.push(`INSERT INTO public."M_GAME_GENRE" (id, game_genre_name) VALUES`);
+    chunk.forEach((d, j) => {
+      const id = domainsId[d];
+      const sep = j < chunk.length - 1 ? "," : "";
+      out.push(`  (${id}, ${lit(d)})${sep}`);
+    });
+    out.push(`ON CONFLICT (game_genre_name) DO NOTHING;`);
+    out.push("");
+  }
+  out.push(`SELECT setval(pg_get_serial_sequence('"M_GAME_GENRE"', 'id'), ${domains.length});`);
+  out.push("");
+
+  // ----------------------------------------------------------------
+  // T_GAME
+  // ----------------------------------------------------------------
+  out.push("-- ============================================================");
+  out.push("-- T_GAME: ゲームデータ");
+  out.push("-- ============================================================");
+
+  // バッチ結果に含まれるゲームのみ対象
+  const targetGames = games.filter((g) => descMap[g["ID"]] !== undefined);
+  console.log(`対象ゲーム数: ${targetGames.length}件（全${games.length}件中）`);
+
+  const CHUNK_GAME = 500;
+  for (let i = 0; i < targetGames.length; i += CHUNK_GAME) {
+    const chunk = targetGames.slice(i, i + CHUNK_GAME);
+    out.push(
+      `INSERT INTO public."T_GAME" ` +
+      `(id, game_name, game_name_ja, year_published, min_players, max_players, ` +
+      `play_time, min_age, users_rated, rating_average, bgg_rank, complexity_average, ` +
+      `description_ja, short_description_ja, game_type_id, game_domain_id) VALUES`
+    );
+
+    chunk.forEach((g, j) => {
+      const shortDesc = descMap[g["ID"]] ?? "";
+      const typeIds = splitList(g["Mechanics"]).map((m) => mechanicsId[m]).filter((id): id is number => id != null);
+      const domIds  = splitList(g["Domains"]).map((d) => domainsId[d]).filter((id): id is number => id != null);
+      const sep = j < chunk.length - 1 ? "," : "";
+
+      out.push(
+        `  (` +
+        `${lit(parseIntVal(g["ID"]))}, ` +
+        `${lit(g["Name"])}, ` +
+        `${lit(g["Name"])}, ` +
+        `${lit(parseIntVal(g["Year Published"]))}, ` +
+        `${lit(parseIntVal(g["Min Players"]))}, ` +
+        `${lit(parseIntVal(g["Max Players"]))}, ` +
+        `${lit(parseIntVal(g["Play Time"]))}, ` +
+        `${lit(parseIntVal(g["Min Age"]))}, ` +
+        `${lit(parseIntVal(g["Users Rated"]))}, ` +
+        `${lit(parseNum(g["Rating Average"]))}, ` +
+        `${lit(parseIntVal(g["BGG Rank"]))}, ` +
+        `${lit(parseNum(g["Complexity Average"]))}, ` +
+        `${lit(shortDesc)}, ` +
+        `${lit(shortDesc)}, ` +
+        `${arrLit(typeIds)}, ` +
+        `${arrLit(domIds)}` +
+        `)${sep}`
+      );
+    });
+
+    out.push(`ON CONFLICT (id) DO NOTHING;`);
+    out.push("");
+  }
+
+  fs.writeFileSync(outPath, out.join("\n"), "utf-8");
+
+  const stat = fs.statSync(outPath);
+  const sizeMb = (stat.size / 1024 / 1024).toFixed(1);
+  console.log(`\n✓ SQL生成完了: ${outPath}`);
+  console.log(`  M_GAME_KIND : ${mechanics.length} 件`);
+  console.log(`  M_GAME_GENRE: ${domains.length} 件`);
+  console.log(`  T_GAME      : ${targetGames.length} 件`);
+  console.log(`  ファイルサイズ: ${sizeMb} MB`);
+}
+
+main();

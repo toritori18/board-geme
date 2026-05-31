@@ -6,3 +6,9 @@ dist/
 .env.local
 .DS_Store
 *.log
+data/
+scripts/batch-ids.json
+data/batch-results.json
+data/mechanics-translations.json
+data/test-output.json
+docs/sql/
