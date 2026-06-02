@@ -37,17 +37,13 @@ export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-600 rounded-2xl mb-4 shadow-lg">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          <img src="/boardgemeTop.png" alt="ボードゲームランキング" className="w-full h-48 object-cover" />
+          <div className="px-8 pt-6 pb-2">
+            <h1 className="text-xl font-bold text-gray-900">パスワードをお忘れですか？</h1>
+            <p className="text-xs text-gray-500 mt-1">登録済みのメールアドレスを入力してください</p>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">パスワードをお忘れですか？</h1>
-          <p className="text-sm text-gray-500 mt-1">登録済みのメールアドレスを入力してください</p>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-lg p-8">
+          <div className="px-8 pt-4 pb-8">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">メールアドレス</label>
@@ -83,6 +79,7 @@ export default function ForgotPasswordPage() {
               ログインに戻る
             </Link>
           </p>
+          </div>
         </div>
       </div>
     </div>
