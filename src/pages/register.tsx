@@ -66,12 +66,13 @@ export default function RegisterPage() {
               <p className="text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg">{success}</p>
             )}
 
+            {/* 登録停止中 */}
             <button
               type="submit"
-              disabled={loading || !!success}
+              disabled={true}
               className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-semibold py-2.5 rounded-lg transition text-sm"
             >
-              {loading ? "登録中..." : "アカウントを作成"}
+              現在登録を受け付けていません
             </button>
           </form>
 
