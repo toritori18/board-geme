@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/utils/supabase";
+import { supabaseAdmin } from "@/utils/supabase-admin";
 
 type ForgotPasswordResponse = {
   success: boolean;
@@ -23,6 +24,19 @@ export default async function handler(
     });
   }
 
+  const { data: existing } = await supabaseAdmin
+    .from("M_USER")
+    .select("id")
+    .eq("email", email)
+    .single();
+
+  if (!existing) {
+    return res.status(404).json({
+      success: false,
+      message: "このメールアドレスは登録されていません。",
+    });
+  }
+
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -36,7 +50,6 @@ export default async function handler(
     });
   }
 
-  // メールアドレスが存在しない場合も同じメッセージを返す（セキュリティ上の理由）
   return res.status(200).json({
     success: true,
     message: "パスワードリセットのメールを送信しました。メールをご確認ください。",
