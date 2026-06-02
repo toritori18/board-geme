@@ -111,13 +111,13 @@ export default function SetPasswordPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <img src="/boardgemeTop.png" alt="ボードゲームランキング" className="w-16 h-16 mb-4 rounded-2xl shadow-lg object-cover" />
-          <h1 className="text-2xl font-bold text-gray-900">パスワードの設定</h1>
-          <p className="text-sm text-gray-500 mt-1">ログインに使うパスワードを設定してください</p>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-lg p-8">
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          <img src="/boardgemeTop.png" alt="ボードゲームランキング" className="w-full h-48 object-cover" />
+          <div className="px-8 pt-6 pb-2">
+            <h1 className="text-xl font-bold text-gray-900">パスワードの設定</h1>
+            <p className="text-xs text-gray-500 mt-1">ログインに使うパスワードを設定してください</p>
+          </div>
+          <div className="px-8 pt-4 pb-8">
           <form onSubmit={handleSubmit} className="space-y-4">
             <p className="text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">{PASSWORD_POLICY_DESCRIPTION}</p>
             <div>
@@ -196,6 +196,7 @@ export default function SetPasswordPage() {
               {loading ? "設定中..." : "パスワードを設定してアカウント作成"}
             </button>
           </form>
+          </div>
         </div>
       </div>
     </div>
