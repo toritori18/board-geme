@@ -89,6 +89,7 @@ function applySearchFilters(
   );
 }
 
+const PAGE_SIZE = 20;
 const STORAGE_KEY = "rankingFilters";
 
 type SavedFilters = {
@@ -140,6 +141,10 @@ export default function RankingPage({ allGames, initialTab }: Props) {
   const [rankDifficultyFilter, setRankDifficultyFilter] = useState("");
   const [rankGenreFilter, setRankGenreFilter] = useState("");
 
+  // ページネーション
+  const [searchPage, setSearchPage] = useState(1);
+  const [rankPage, setRankPage] = useState(1);
+
   // sessionStorageからフィルター状態を復元（詳細画面から戻ったとき用）
   useEffect(() => {
     try {
@@ -177,6 +182,7 @@ export default function RankingPage({ allGames, initialTab }: Props) {
 
   const handleSearch = () => {
     setResults(applySearchFilters(allGames, query, playerFilter, playTimeFilter, difficultyFilter, genreFilter));
+    setSearchPage(1);
   };
 
   const handleReset = () => {
@@ -186,10 +192,14 @@ export default function RankingPage({ allGames, initialTab }: Props) {
     setDifficultyFilter("");
     setGenreFilter("");
     setResults(null);
+    setSearchPage(1);
   };
 
   const filteredRanking = applyFilters(sorted, rankPlayerFilter, rankPlayTimeFilter, rankDifficultyFilter, rankGenreFilter);
   const isRankingFiltered = rankPlayerFilter || rankPlayTimeFilter || rankDifficultyFilter || rankGenreFilter;
+
+  const pagedResults = results ? results.slice((searchPage - 1) * PAGE_SIZE, searchPage * PAGE_SIZE) : [];
+  const pagedRanking = filteredRanking.slice((rankPage - 1) * PAGE_SIZE, rankPage * PAGE_SIZE);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50">
@@ -237,7 +247,7 @@ export default function RankingPage({ allGames, initialTab }: Props) {
         {activeTab === "search" && (
           <div>
             <div className="mb-6">
-              <h1 className="text-2xl font-bold text-gray-900">ゲームを検索</h1>
+              <h1 className="text-2xl font-bold text-gray-900">ボードゲームを検索</h1>
               <p className="text-sm text-gray-500 mt-1">条件を選んで検索ボタンを押してください</p>
             </div>
 
@@ -315,11 +325,48 @@ export default function RankingPage({ allGames, initialTab }: Props) {
                     : "条件に一致するゲームが見つかりませんでした"}
                 </p>
                 {results.length > 0 && (
-                  <div className="space-y-3">
-                    {results.map((game, index) => (
-                      <GameCard key={game.id} game={game} rank={index + 1} showVotes={false} />
-                    ))}
-                  </div>
+                  <>
+                    <div className="space-y-3">
+                      {pagedResults.map((game, index) => (
+                        <GameCard key={game.id} game={game} rank={(searchPage - 1) * PAGE_SIZE + index + 1} showVotes={false} />
+                      ))}
+                    </div>
+                    {results.length > PAGE_SIZE && (
+                      <div className="flex items-center justify-center gap-2 mt-6">
+                        <button
+                          onClick={() => setSearchPage(1)}
+                          disabled={searchPage === 1}
+                          className="px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                        >
+                          最初へ
+                        </button>
+                        <button
+                          onClick={() => setSearchPage((p) => p - 1)}
+                          disabled={searchPage === 1}
+                          className="px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                        >
+                          前へ
+                        </button>
+                        <span className="text-sm text-gray-500 px-2">
+                          {searchPage} / {Math.ceil(results.length / PAGE_SIZE)}
+                        </span>
+                        <button
+                          onClick={() => setSearchPage((p) => p + 1)}
+                          disabled={searchPage >= Math.ceil(results.length / PAGE_SIZE)}
+                          className="px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                        >
+                          次へ
+                        </button>
+                        <button
+                          onClick={() => setSearchPage(Math.ceil(results.length / PAGE_SIZE))}
+                          disabled={searchPage >= Math.ceil(results.length / PAGE_SIZE)}
+                          className="px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                        >
+                          最後へ
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -329,7 +376,7 @@ export default function RankingPage({ allGames, initialTab }: Props) {
         {activeTab === "ranking" && (
           <div>
             <div className="mb-6">
-              <h1 className="text-2xl font-bold text-gray-900">人気ランキング</h1>
+              <h1 className="text-2xl font-bold text-gray-900">ボードゲーム人気ランキング</h1>
               <p className="text-sm text-gray-500 mt-1">評価数・スコアをもとに集計</p>
             </div>
 
@@ -337,7 +384,7 @@ export default function RankingPage({ allGames, initialTab }: Props) {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">プレイ人数</label>
-                  <select value={rankPlayerFilter} onChange={(e) => setRankPlayerFilter(e.target.value)}
+                  <select value={rankPlayerFilter} onChange={(e) => { setRankPlayerFilter(e.target.value); setRankPage(1); }}
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
                     <option value="">すべて</option>
                     {PLAYER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -345,7 +392,7 @@ export default function RankingPage({ allGames, initialTab }: Props) {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">所要時間</label>
-                  <select value={rankPlayTimeFilter} onChange={(e) => setRankPlayTimeFilter(e.target.value)}
+                  <select value={rankPlayTimeFilter} onChange={(e) => { setRankPlayTimeFilter(e.target.value); setRankPage(1); }}
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
                     <option value="">すべて</option>
                     {PLAY_TIME_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -353,7 +400,7 @@ export default function RankingPage({ allGames, initialTab }: Props) {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">難易度</label>
-                  <select value={rankDifficultyFilter} onChange={(e) => setRankDifficultyFilter(e.target.value)}
+                  <select value={rankDifficultyFilter} onChange={(e) => { setRankDifficultyFilter(e.target.value); setRankPage(1); }}
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
                     <option value="">すべて</option>
                     {DIFFICULTY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -361,7 +408,7 @@ export default function RankingPage({ allGames, initialTab }: Props) {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">ジャンル</label>
-                  <select value={rankGenreFilter} onChange={(e) => setRankGenreFilter(e.target.value)}
+                  <select value={rankGenreFilter} onChange={(e) => { setRankGenreFilter(e.target.value); setRankPage(1); }}
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
                     <option value="">すべて</option>
                     {allGenres.map((genre) => <option key={genre} value={genre}>{genre}</option>)}
@@ -372,7 +419,7 @@ export default function RankingPage({ allGames, initialTab }: Props) {
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
                   <p className="text-sm text-gray-500">{filteredRanking.length}件</p>
                   <button
-                    onClick={() => { setRankPlayerFilter(""); setRankPlayTimeFilter(""); setRankDifficultyFilter(""); setRankGenreFilter(""); }}
+                    onClick={() => { setRankPlayerFilter(""); setRankPlayTimeFilter(""); setRankDifficultyFilter(""); setRankGenreFilter(""); setRankPage(1); }}
                     className="text-xs text-indigo-600 hover:underline"
                   >
                     リセット
@@ -382,10 +429,45 @@ export default function RankingPage({ allGames, initialTab }: Props) {
             </div>
 
             <div className="space-y-3">
-              {filteredRanking.map((game, index) => (
-                <GameCard key={game.id} game={game} rank={index + 1} />
+              {pagedRanking.map((game, index) => (
+                <GameCard key={game.id} game={game} rank={(rankPage - 1) * PAGE_SIZE + index + 1} />
               ))}
             </div>
+            {filteredRanking.length > PAGE_SIZE && (
+              <div className="flex items-center justify-center gap-2 mt-6">
+                <button
+                  onClick={() => setRankPage(1)}
+                  disabled={rankPage === 1}
+                  className="px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                >
+                  最初へ
+                </button>
+                <button
+                  onClick={() => setRankPage((p) => p - 1)}
+                  disabled={rankPage === 1}
+                  className="px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                >
+                  前へ
+                </button>
+                <span className="text-sm text-gray-500 px-2">
+                  {rankPage} / {Math.ceil(filteredRanking.length / PAGE_SIZE)}
+                </span>
+                <button
+                  onClick={() => setRankPage((p) => p + 1)}
+                  disabled={rankPage >= Math.ceil(filteredRanking.length / PAGE_SIZE)}
+                  className="px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                >
+                  次へ
+                </button>
+                <button
+                  onClick={() => setRankPage(Math.ceil(filteredRanking.length / PAGE_SIZE))}
+                  disabled={rankPage >= Math.ceil(filteredRanking.length / PAGE_SIZE)}
+                  className="px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                >
+                  最後へ
+                </button>
+              </div>
+            )}
           </div>
         )}
       </main>
