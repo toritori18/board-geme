@@ -5,7 +5,6 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -17,14 +16,12 @@ export default function RegisterPage() {
       return;
     }
 
-    setLoading(true);
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
     const data = await res.json() as { success: boolean; message: string };
-    setLoading(false);
 
     if (!data.success) {
       setError(data.message);
