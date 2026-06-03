@@ -82,13 +82,13 @@ function main() {
   // Mechanics → ID割り当て（ソート済み）
   const mechanicsSet = new Set<string>();
   for (const g of games) splitList(g["Mechanics"]).forEach((m) => mechanicsSet.add(m));
-  const mechanics = [...mechanicsSet].sort();
+  const mechanics = Array.from(mechanicsSet).sort();
   const mechanicsId: Record<string, number> = Object.fromEntries(mechanics.map((m, i) => [m, i + 1]));
 
   // Domains → ID割り当て
   const domainsSet = new Set<string>();
   for (const g of games) splitList(g["Domains"]).forEach((d) => domainsSet.add(d));
-  const domains = [...domainsSet].sort();
+  const domains = Array.from(domainsSet).sort();
   const domainsId: Record<string, number> = Object.fromEntries(domains.map((d, i) => [d, i + 1]));
 
   const out: string[] = [];
