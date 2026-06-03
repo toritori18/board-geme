@@ -78,13 +78,13 @@ async function translateMechanics(games: GameRecord[]): Promise<Record<string, s
     return JSON.parse(fs.readFileSync(outputPath, "utf-8")) as Record<string, string>;
   }
 
-  const allMechanics = [
-    ...new Set(
+  const allMechanics = Array.from(
+    new Set(
       games.flatMap((g) =>
         g["Mechanics"] ? g["Mechanics"].split(",").map((m) => m.trim()).filter(Boolean) : []
       )
-    ),
-  ].sort();
+    )
+  ).sort();
 
   console.log(`\nMechanicsを翻訳中... (${allMechanics.length}種類)`);
 

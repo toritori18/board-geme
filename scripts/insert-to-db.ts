@@ -38,13 +38,13 @@ async function insertGameKind(
   games: GameRecord[],
   translationMap: Record<string, string>
 ): Promise<Record<string, number>> {
-  const allMechanics = [
-    ...new Set(
+  const allMechanics = Array.from(
+    new Set(
       games.flatMap((g) =>
         g["Mechanics"] ? g["Mechanics"].split(",").map((m) => m.trim()).filter(Boolean) : []
       )
-    ),
-  ].sort();
+    )
+  ).sort();
 
   console.log(`M_GAME_KINDに挿入中... (${allMechanics.length}件)`);
   const rows = allMechanics.map((mechanic) => ({
@@ -63,13 +63,13 @@ async function insertGameKind(
 
 // Domains を M_GAME_GENRE に挿入（game_kind_name_ja は後から投入のため NULL）
 async function insertGameGenre(games: GameRecord[]): Promise<Record<string, number>> {
-  const allDomains = [
-    ...new Set(
+  const allDomains = Array.from(
+    new Set(
       games.flatMap((g) =>
         g["Domains"] ? g["Domains"].split(",").map((d) => d.trim()).filter(Boolean) : []
       )
-    ),
-  ];
+    )
+  );
 
   console.log(`M_GAME_GENREに挿入中... (${allDomains.length}件)`);
   const { data, error } = await supabase
@@ -163,14 +163,14 @@ async function main() {
   const csvPath = path.join(__dirname, "../data/bgg_dataset.csv");
   const games = parseCSV(csvPath);
 
-  const allMechanics = [...new Set(games.flatMap((g) =>
+  const allMechanics = Array.from(new Set(games.flatMap((g) =>
     g["Mechanics"] ? g["Mechanics"].split(",").map((m) => m.trim()).filter(Boolean) : []
-  ))].sort();
+  ))).sort();
   const kindIdMap: Record<string, number> = Object.fromEntries(allMechanics.map((m, i) => [m, i + 1]));
 
-  const allDomains = [...new Set(games.flatMap((g) =>
+  const allDomains = Array.from(new Set(games.flatMap((g) =>
     g["Domains"] ? g["Domains"].split(",").map((d) => d.trim()).filter(Boolean) : []
-  ))].sort();
+  ))).sort();
   const genreIdMap: Record<string, number> = Object.fromEntries(allDomains.map((d, i) => [d, i + 1]));
 
   await insertGames(games, descriptionMap, kindIdMap, genreIdMap);
