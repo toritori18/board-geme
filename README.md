@@ -44,6 +44,9 @@ board-geme/
 ├── .gitignore
 ├── .env.example             # 環境変数のサンプル
 ├── .editorconfig            # 文字コード・改行・インデントの規約
+├── .github/                 # GitHub 設定
+│   └── workflows/           # CI ワークフロー
+│       └── ci.yml           # 継続的統合（PR・push 時の自動検査）
 ├── .claude/                 # Claude Code設定
 │   ├── settings.json        # 権限・フック設定
 │   ├── factcheck.md         # ハルシネーション防止チェックリスト
@@ -138,9 +141,9 @@ board-geme/
 
 | 名前 | 役割 | ツール |
 |---|---|---|
-| `coder` | コンポーネント・関数・ロジックの新規実装や修正。実装前に `docs/contributing.md`・`.claude/factcheck.md`・`.editorconfig` を読んで従う | Read, Write, Edit, Glob, Grep, Bash |
+| `coder` | コンポーネント・関数・ロジックの新規実装や修正。実装前に `docs/contributing.md`・`docs/tech-stack.md`・`.claude/factcheck.md`・`.editorconfig` を読み、パッケージ・API の実在確認を行う | Read, Write, Edit, Glob, Grep, Bash |
 | `code-reviewer` | 実装後・コミット前のレビュー。`docs/contributing.md` の規約と `.claude/factcheck.md` に照らしてチェックする | Read, Grep, Glob |
-| `readme-syncer` | この README.md と実体（コマンド・エージェント・npm スクリプト・ディレクトリ構成）の乖離を検出・修正する | Read, Edit, Glob, Grep, Bash |
+| `readme-syncer` | README.md と実体（コマンド・エージェント・npm スクリプト・ディレクトリ構成）の乖離を検出・修正。リポジトリ全体を読み取り、README.md のみを編集する | Read, Edit, Glob, Grep, Bash |
 
 ## 開発ルール
 
