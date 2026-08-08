@@ -1,4 +1,7 @@
-# 初回セットアップスクリプト
+﻿# 初回セットアップスクリプト
+
+# Claude Code は出力を UTF-8 として読むため、stdout を UTF-8 に固定する（文字化け防止）
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 Write-Host "=== Board Game Ranking セットアップ ===" -ForegroundColor Cyan
 
@@ -30,5 +33,6 @@ if (Test-Path ".env.local") {
 Write-Host "`n=== セットアップ完了 ===" -ForegroundColor Cyan
 Write-Host "次のステップ:" -ForegroundColor White
 Write-Host "  1. .env.local を編集して Supabase の接続情報を設定"
-Write-Host "  2. npm run dev で開発サーバーを起動"
-Write-Host "  3. ブラウザで http://localhost:3000 を開く"
+Write-Host "  2. git hooksの登録: /git:init コマンドを実行（pre-pushの機密情報チェックが有効になります）"
+Write-Host "  3. /server:start コマンド（または npm run dev）で開発サーバーを起動"
+Write-Host "  4. ブラウザで http://localhost:3000 を開く"

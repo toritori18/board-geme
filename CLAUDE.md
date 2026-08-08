@@ -1,60 +1,21 @@
 # CLAUDE.md — Board Game Project
 
+## 基本ルール
+
+- 応答・コミットメッセージ・PR の説明は日本語で書く
+- コーディング（コンポーネント・関数・ロジックの新規実装や修正）は `coder` エージェントに委任する
+- カスタムコマンド・サブエージェント・npm スクリプト・ディレクトリ構成を追加/削除/リネームしたときは、`readme-syncer` エージェントで [README.md](README.md) を同期する
+- この `CLAUDE.md` の変更は、ユーザーの明示的な指示がある場合のみ行う（フックにより確認が入る）
+
 ## プロジェクト概要
 
-詳細は [README.md](README.md) を参照。このファイルはClaude Codeがプロジェクトを理解するためのガイドです。
+ボードゲームを検索し、人気ランキングを閲覧できる Web アプリ。
+スタックは [README.md](README.md#技術スタック) / [docs/tech-stack.md](docs/tech-stack.md) を参照。
 
-## 技術スタック
+## Git運用ルール（要約）
 
-| 役割 | 技術 |
-|---|---|
-| フロントエンド | Next.js (React), Tailwind CSS |
-| バックエンド | Next.js API Routes / Server Actions |
-| DB・認証 | Supabase (PostgreSQL) |
-| ホスティング | Vercel |
+- `main` への直接コミット・プッシュは禁止（`/git:push` でもブロックされる）
+- 機能追加は `feature/<機能名>`、バグ修正は `fix/<バグ名>` ブランチで作業し、PR 経由で main へマージする
+- コミットメッセージは `feat:` / `fix:` / `refactor:` / `docs:` / `chore:` のプレフィックスを付ける
 
-詳細は [docs/tech-stack.md](docs/tech-stack.md) を参照してください。
-
-## Git運用ルール
-
-Gitに関するルールは以下のファイルを参照してください:
-
-**[docs/git-rules.md](docs/git-rules.md)**
-
-## ディレクトリ構成
-
-```
-board-geme/
-├── CLAUDE.md               # このファイル
-├── README.md               # プロジェクト説明
-├── package.json            # 依存関係・スクリプト
-├── .gitignore
-├── .env.example            # 環境変数のサンプル
-├── .claude/                # Claude Code設定
-│   ├── settings.json       # 権限・フック設定
-│   └── commands/           # カスタムスラッシュコマンド（.md + 実行スクリプト）
-├── src/                    # ソースコード
-│   ├── components/         # UIコンポーネント
-│   ├── pages/              # ページ
-│   ├── utils/              # ユーティリティ
-│   ├── assets/             # 画像・フォントなどの静的リソース
-│   └── styles/             # スタイルシート
-├── docs/                   # ドキュメント
-│   ├── git-rules.md        # Git運用ルール
-│   ├── tech-stack.md       # 技術スタック
-│   ├── setup.md            # セットアップガイド
-│   └── contributing.md     # コントリビュートガイド
-└── tests/                  # テスト
-```
-
-## コーディング規約・禁止事項
-
-詳細は [docs/contributing.md](docs/contributing.md) を参照してください。
-
-コードを書く際に特に注意すること：
-
-- インポートパスは必ず `@/` エイリアスを使用する（相対パス `../../` は使わない）
-- コメントは日本語で書く
-- 現在 Pages Router（`src/pages/`）を使用中。App Router への移行は行わない
-- `any` 型は使用禁止（ESLint により自動検出される）
-- APIキー・シークレットはコードに直書きせず、`.env.local` 経由で参照する
+詳細は **[docs/git-rules.md](docs/git-rules.md)** を参照してください。
