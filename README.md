@@ -32,7 +32,7 @@
 
 ## セットアップ
 
-[docs/setup.md](docs/setup.md) を参照してください。
+[docs/development-setup.md](docs/development-setup.md) を参照してください。
 
 ## ディレクトリ構成
 
@@ -65,10 +65,12 @@ board-geme/
 │   ├── data/                    # 静的データ（JSON等）
 │   ├── assets/                   # 画像・フォントなどの静的リソース
 │   └── styles/                    # スタイルシート
+├── public/                  # 静的ファイル配信（Next.js）
+│   └── img/                 # 画像
 ├── docs/                    # ドキュメント
 │   ├── git-rules.md         # Git運用ルール
 │   ├── tech-stack.md        # 技術スタック
-│   ├── setup.md              # セットアップガイド
+│   ├── development-setup.md  # セットアップガイド
 │   ├── contributing.md        # コントリビュートガイド
 │   ├── powershell-contributing.md  # PowerShell（`.ps1`）のコーディング規約
 │   └── sql/                    # DBスキーマSQL（Supabase SQL Editorで実行）

@@ -1,6 +1,8 @@
 データベース（Supabase / PostgreSQL）のスキーマ変更を行ってください。
 
-現状 Supabase CLI によるマイグレーション管理は未導入です。スキーマ変更は `docs/sql/` 配下に SQL ファイルを追加し、Supabase ダッシュボードの SQL Editor で手動実行する運用です（[docs/sql/create_game_tables.sql](../../../docs/sql/create_game_tables.sql) 等を参照）。
+現状 Supabase CLI によるマイグレーション管理は未導入です。スキーマ変更は `docs/sql/` 配下に SQL ファイルを追加し、Supabase ダッシュボードの SQL Editor で手動実行する運用です（`docs/sql/create_game_tables.sql` 等を参照）。
+
+> `docs/sql/` は `.gitignore` で追跡対象外のローカル専用フォルダです。リポジトリのクローン直後には存在しないため、既存の SQL ファイルを参照する場合は作業環境のディスク上を確認してください。
 
 ## 手順
 

@@ -55,7 +55,7 @@ export default function GameDetailPage({ game, rank }: Props) {
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/ranking" className="flex items-center gap-2 group">
-            <img src="/boardgemeTop.png" alt="ボードゲームランキング" className="w-8 h-8 rounded-lg object-cover" />
+            <img src="/img/boardgemeTop.png" alt="ボードゲームランキング" className="w-8 h-8 rounded-lg object-cover" />
             <span className="font-bold text-gray-900 text-sm group-hover:text-indigo-600 transition">
               ボードゲームランキング
             </span>

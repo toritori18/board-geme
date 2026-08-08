@@ -35,7 +35,7 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-          <img src="/boardgemeTop.png" alt="ボードゲームランキング" className="w-full h-48 object-cover" />
+          <img src="/img/boardgemeTop.png" alt="ボードゲームランキング" className="w-full h-48 object-cover" />
           <div className="px-8 pt-6 pb-2">
             <h1 className="text-xl font-bold text-gray-900">ボードゲームランキング</h1>
             <p className="text-xs text-gray-500 mt-1">新規アカウントを作成する</p>

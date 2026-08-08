@@ -64,6 +64,6 @@
 
 ## 注意事項
 
-- `.env` やシークレット情報を含むファイルは絶対にコミットしない（管理方法は [docs/setup.md](setup.md) の「環境変数の設定」を参照）
+- `.env` やシークレット情報を含むファイルは絶対にコミットしない（管理方法は [docs/development-setup.md](development-setup.md) の「環境変数の設定」を参照）
 - `git push --force` は原則禁止（main ブランチへは特に厳禁）
 - プッシュ前に `/git:diff` で変更内容を確認する
