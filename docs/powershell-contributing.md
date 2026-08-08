@@ -174,4 +174,4 @@ function ConvertTo-HeadingSlug {
 - 対話を要求するコマンドの使用（`Read-Host` / `Get-Credential` / `pause` / `Out-GridView`）— 非対話で実行されるため応答が返らず、処理が止まる
 - 確認プロンプトが出る破壊的コマンドを、意図を明示せずに使うこと（`Remove-Item` 等は `-Force` / `-ErrorAction SilentlyContinue` などを明示する）
 - `main` への直接プッシュを行う処理の追加（[git-rules.md](git-rules.md) 参照。[git/push.ps1](../.claude/commands/git/push.ps1) はブランチ名を検査して拒否している）
-- APIキー・シークレットのコードへの直書き（必ず `.env.local` 経由で参照する。[setup.md](setup.md) 参照）
+- APIキー・シークレットのコードへの直書き（必ず `.env.local` 経由で参照する。[development-setup.md](development-setup.md) 参照）
