@@ -1,0 +1,57 @@
+# CI: PR および main へのプッシュ時に /check 相当を実行する。
+#
+# ローカルの /check（.claude/commands/check.ps1）と同じ4ステップを同じ順序で回す。
+# 片方だけを更新すると乖離するため、手順を変えるときは両方を直すこと。
+#
+# ランナーに windows-latest を使う理由:
+#   verify-docs.ps1 は Windows PowerShell 5.1 向けに書かれており
+#   （docs/powershell-contributing.md の「実行環境」参照）、パスの連結に
+#   バックスラッシュを使うため Linux ランナーでは動作しない。
+#   shell: powershell は windows-latest 上の Windows PowerShell 5.1 を指す
+#   （pwsh = PowerShell 7 ではない）。ローカルの実行環境と一致させている。
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # 依存関係のインストールを伴わず最も速いため、最初に実行して早く失敗させる
+      - name: ドキュメントの参照先を検査
+        shell: powershell
+        run: .\.claude\commands\verify-docs.ps1
+
+      - name: Node.js のセットアップ
+        uses: actions/setup-node@v7
+        with:
+          # ローカルの開発環境（v24 系）に合わせる。v24 は Active LTS
+          node-version: 24
+          cache: npm
+
+      - name: 依存関係のインストール
+        run: npm ci
+
+      - name: 静的解析
+        run: npm run lint
+
+      - name: 型検査
+        run: npx tsc --noEmit
+
+      # src/utils/supabase.ts・supabase-admin.ts はモジュールスコープで createClient を
+      # 呼ぶため、環境変数が未設定だと静的プリレンダリング中に
+      # 「supabaseUrl is required.」で失敗する（実測で確認）。
+      # CI が検証したいのは lint・型・ビルドの健全性であって接続先の正しさではないため、
+      # 実際のシークレットは渡さずダミー値でビルドする。
+      # 本番の値を使ったビルドは Vercel 側で別途行われる。
+      - name: 本番ビルド
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key-for-ci-build
+          SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key-for-ci-build
+        run: npm run build
