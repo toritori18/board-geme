@@ -1,3 +1,6 @@
+﻿# Claude Code は出力を UTF-8 として読むため、stdout を UTF-8 に固定する（文字化け防止）
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
 $conn = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($conn) {
     $procId = $conn.OwningProcess

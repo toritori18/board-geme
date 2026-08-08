@@ -2,6 +2,8 @@ node_modules/
 .next/
 out/
 dist/
+# TypeScript のインクリメンタルビルドキャッシュ（生成物）
+*.tsbuildinfo
 .env
 .env.local
 .DS_Store
@@ -12,3 +14,9 @@ data/batch-results.json
 data/mechanics-translations.json
 data/test-output.json
 docs/sql/
+
+# Claude Code 個人設定（チーム共有しない）
+.claude/settings.local.json
+# Claude Code フック・コマンドが生成する一時ファイル
+.claude/dev-server*.log
+.claude/.stop-check-cache

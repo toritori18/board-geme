@@ -10,7 +10,8 @@
 
 ### 言語・型
 
-- TypeScript（`.ts` / `.tsx`）のみ使用する
+- アプリケーションのロジックは TypeScript（`.ts` / `.tsx`）で書く。`.js` はビルドツールの設定ファイルに限る（下記「設定ファイル（`.js`）」参照）
+- `.claude/` 配下の `.ps1` はこのドキュメントの対象外（[powershell-contributing.md](powershell-contributing.md) を参照）
 - `any` 型は使用禁止。不明な型は `unknown` を使い、型ガードで絞り込む
 - `tsconfig.json` の `strict: true` および ESLint の `@typescript-eslint/no-explicit-any: error` により自動チェックされる
 
@@ -40,6 +41,22 @@
 - スタイルは Tailwind CSS のみ使用する
 - CSS Modules・インラインの `style` 属性は使わない
 
+#### `.css` ファイル
+
+`.css` は [src/styles/globals.css](../src/styles/globals.css) の1本のみで、Tailwind のディレクティブ（`@tailwind base` / `components` / `utilities`）を読み込むためのファイルである。
+
+- **新しい `.css` ファイルを追加しない。** 個別のスタイルは Tailwind のユーティリティクラスでコンポーネント側に書く
+- `globals.css` に素の CSS を書き足さない。Tailwind のユーティリティで表現できないものだけを対象とし、その場合も `@layer base` / `@layer components` / `@layer utilities` のいずれかの中に書く（Tailwind のレイヤー順序を壊さないため）
+- 色・余白などの値を直接書かず、Tailwind の設定（[tailwind.config.ts](../tailwind.config.ts) の `theme.extend`）に定義して使う
+
+### 設定ファイル（`.js`）
+
+`.js` はビルドツールの設定ファイルに限る（[next.config.js](../next.config.js) / [postcss.config.js](../postcss.config.js)）。アプリケーションのロジックを `.js` で書かない。
+
+- **CommonJS（`module.exports`）で書く。** `package.json` に `"type": "module"` が無いため、`.js` は CommonJS として読まれる。`export default` は使えない
+- 型補完のため、JSDoc の型注釈を付ける（例: `/** @type {import('next').NextConfig} */`）
+- **TypeScript で書ける設定ファイルは `.ts` を優先する**（[tailwind.config.ts](../tailwind.config.ts) が該当）。`.js` を新規に増やすのは、ツール側が `.ts` を受け付けない場合に限る
+
 ### コメント
 
 - コメントは日本語で書く
@@ -47,6 +64,7 @@
 
 ## 禁止事項
 
+- 存在しない npm パッケージ・API・メソッドの使用（実装前に [.claude/factcheck.md](../.claude/factcheck.md) のチェックリストに従い実在確認する）
 - `any` 型の使用（ESLintにより `error` として検出される）
 - `console.log` を本番コードに残すこと（ESLintにより `warn` として検出される）
 - APIキー・シークレットのコードへの直書き（必ず `.env.local` 経由で参照する）
