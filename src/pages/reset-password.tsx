@@ -94,7 +94,7 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <img src="/boardgemeTop.png" alt="ボードゲームランキング" className="w-16 h-16 mb-4 rounded-2xl shadow-lg object-cover" />
+          <img src="/img/boardgemeTop.png" alt="ボードゲームランキング" className="w-16 h-16 mb-4 rounded-2xl shadow-lg object-cover" />
           <h1 className="text-2xl font-bold text-gray-900">新しいパスワードの設定</h1>
         </div>
 

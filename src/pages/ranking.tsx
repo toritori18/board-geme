@@ -209,7 +209,7 @@ export default function RankingPage({ allGames, initialTab }: Props) {
             onClick={() => { handleTabChange("search"); handleReset(); }}
             className="flex items-center gap-2 hover:opacity-80 transition"
           >
-            <img src="/boardgemeTop.png" alt="ボードゲームランキング" className="w-8 h-8 rounded-lg object-cover" />
+            <img src="/img/boardgemeTop.png" alt="ボードゲームランキング" className="w-8 h-8 rounded-lg object-cover" />
             <span className="font-bold text-gray-900 text-sm">ボードゲームランキング</span>
           </button>
           <button

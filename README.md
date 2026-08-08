@@ -65,6 +65,8 @@ board-geme/
 │   ├── data/                    # 静的データ（JSON等）
 │   ├── assets/                   # 画像・フォントなどの静的リソース
 │   └── styles/                    # スタイルシート
+├── public/                  # 静的ファイル配信（Next.js）
+│   └── img/                 # 画像
 ├── docs/                    # ドキュメント
 │   ├── git-rules.md         # Git運用ルール
 │   ├── tech-stack.md        # 技術スタック
