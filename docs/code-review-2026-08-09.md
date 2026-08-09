@@ -6,12 +6,14 @@
 
 規約面（`any` 不使用・`@/` エイリアス・Tailwind のみ・日本語コメント・`.js` は設定ファイルのみ）は**アプリ本体では概ね遵守されていた**。以下は、それとは別に見つかった実害のある問題をまとめたものである。
 
-| 深刻度 | 件数 | 概要 |
-|---|---:|---|
-| 🔴 重大 | 3 | RLS 未設定、認可の不在、招待メール API の野ざらし |
-| 🟠 高 | 5 | 1000件上限による表示欠落、全件 SSR、毎レンダー全件ソート |
-| 🟡 中 | 9 | フィルタのロジック不具合、投入スクリプトの ID 採番 |
-| 🟢 低 | 10前後 | 重複コード、デッドコード、a11y、ドキュメント不整合 |
+| 深刻度 | 件数 | 概要 | 対応状況（2026-08-09 時点） |
+|---|---:|---|---|
+| 🔴 重大 | 3 | RLS 未設定、認可の不在、招待メール API の野ざらし | **3件すべて対応済み** |
+| 🟠 高 | 5 | 1000件上限による表示欠落、全件 SSR、毎レンダー全件ソート | **5件すべて対応済み**（H-3 は計算自体の削除による実質解消） |
+| 🟡 中 | 9 | フィルタのロジック不具合、投入スクリプトの ID 採番 | 2件対応済み（M-1・M-2）。**M-3〜M-6 は未対応**、M-7〜M-9 は未着手 |
+| 🟢 低 | 10前後 | 重複コード、デッドコード、a11y、ドキュメント不整合 | 未着手 |
+
+各項目の実施日とコミットは、以下の該当箇所に記載している。
 
 ---
 
@@ -47,25 +49,35 @@
 - Supabase の Data API はデフォルトで**最大 1000 行**しか返さない（出典: <https://supabase.com/docs/reference/javascript/limit>）
 - `sql/insert_transaction_data_*.sql` の規模（約2万件）に対し、**ランキング・検索は上位1000件しか対象になっていない**。エラーも警告も出ないため気づけない
 
+> **解消済み（2026-08-09、`ed4e3e4`）** — `fetchGames()` を廃し、[fetchGamesPage()](../src/utils/game-mapper.ts#L103) が `.range(from, to)` でページ範囲を明示して取得する形に変更した。総件数は `select(..., { count: "exact" })` で別途受け取るため、1000行上限に依存しない。実データでの全件数は 20,327 件である。
+
 ### H-2. 全件を SSR して `__NEXT_DATA__` に埋め込んでいる
 
 - `getServerSideProps` が毎リクエストで全ゲームを取得し props に載せる。ページネーション（`PAGE_SIZE = 20`）は**クライアント側の `slice` のみ**である
 - H-1 を解消して2万件返すようにすると、そのままでは HTML が数十MB規模になる。サーバー側ページングへの移行が前提となる
+
+> **解消済み（2026-08-09、`ed4e3e4`）** — `getServerSideProps` が `fetchGamesPage()` で1ページ分（`PAGE_SIZE = 20`）のみ取得するようになり、`__NEXT_DATA__` に載るのも同じ20件分だけになった。絞り込み・並び替え・キーワード検索はすべて DB 側の条件に移してある。
 
 ### H-3. 毎レンダーで全件ソート・集合構築が走る
 
 - [ranking.tsx](../src/pages/ranking.tsx#L125) の `sorted` / `allGenres`、同 [198行目](../src/pages/ranking.tsx#L198) の `filteredRanking` が `useMemo` 無しのトップレベル計算である（`useMemo` はリポジトリ全体で0件）
 - 検索ボックスの**1文字入力ごと**に全件の `sort` + `flatMap` + `new Set` が実行される
 
+> **解消済み（2026-08-09、`ed4e3e4`）** — サーバー側ページングへ移行した際、指摘の3つの計算（`sorted` / `allGenres` / `filteredRanking`）が `ranking.tsx` から削除され、並び替え・絞り込みは `game-mapper.ts` の `fetchGamesPage()`（`getServerSideProps` 内でリクエストごとに1回）へ移った。現在の `ranking.tsx` にトップレベルの重い計算は無いため、`useMemo` の導入自体が不要になっている。なお `useMemo` がリポジトリ全体で0件である事実は変わらない。
+
 ### H-4. Supabase のエラーを握り潰している
 
 - [game-mapper.ts](../src/utils/game-mapper.ts#L62) の `fetchGames` / `fetchGameById` が `{ data }` のみ destructure し、`error` を捨てている
 - DB 障害・権限エラー時に**「0件」として正常ページが描画される**。障害が沈黙する
 
+> **解消済み（2026-08-09、`ed4e3e4`）** — [buildGenreMap()](../src/utils/game-mapper.ts#L40)・[fetchGamesPage()](../src/utils/game-mapper.ts#L197)・[fetchGameById()](../src/utils/game-mapper.ts#L220) の3箇所で `error` を受け取り `throw` するようにした。`fetchGameById` は `.single()` ではなく `.maybeSingle()` を使い、「該当行が無い」と「DB 障害」を区別している。
+
 ### H-5. パスワード更新が 0 行更新でも「成功」を返す
 
 - [reset-password.ts](../src/pages/api/auth/reset-password.ts#L43) — `M_USER` に該当行が無くても `update` はエラーにならない
 - Supabase Auth 側にのみ存在するユーザーには「パスワードを更新しました」と表示されるが、`login.ts` は `M_USER` を引くため**ログインできない**
+
+> **解消済み（2026-08-09、`cb9c21e`）** — [reset-password.ts:59](../src/pages/api/auth/reset-password.ts#L59) で `update` に `.select("id")` を付けて更新行を受け取り、0件なら 404「アカウントが見つかりませんでした。」を返す。ただしこれは**対症療法**であり、根本原因（Supabase Auth と `M_USER.password_hash` の二重管理）はユーザー判断により対象外のままである。
 
 ---
 
@@ -73,8 +85,8 @@
 
 | # | 箇所 | 内容 |
 |---|---|---|
-| M-1 | [ranking.tsx](../src/pages/ranking.tsx#L38) | `playTime` が `"不明"` のとき `parseInt("不")` が `NaN` になる。NaN との比較は全て false のため、**play_time が null のゲームが全ての時間フィルタを通過する** |
-| M-2 | [ranking.tsx](../src/pages/ranking.tsx#L63) | 超重量級の条件が `max < 120` のため、**120分ちょうどのゲームが「重量級(61〜120分)」と「超重量級(120分以上)」の両方**に出る |
+| M-1 | [ranking.tsx](../src/pages/ranking.tsx#L38) | **✅ 解消済み** — `playTime` が `"不明"` のとき `parseInt("不")` が `NaN` になる。NaN との比較は全て false のため、**play_time が null のゲームが全ての時間フィルタを通過する** |
+| M-2 | [ranking.tsx](../src/pages/ranking.tsx#L63) | **✅ 解消済み** — 超重量級の条件が `max < 120` のため、**120分ちょうどのゲームが「重量級(61〜120分)」と「超重量級(120分以上)」の両方**に出る |
 | M-3 | [game-mapper.ts](../src/utils/game-mapper.ts#L41) | `complexity_average` が null のとき `?? 0` により**一律「初心者向け」**に分類される。データ欠損と「本当に易しい」が区別できない |
 | M-4 | [ranking.tsx](../src/pages/ranking.tsx#L125) | UI は「評価数・スコアをもとに集計」と表示するが、実装は `rating` 降順で `votes` は同点時のタイブレークのみである。**評価数が極端に少ない高評価ゲームが上位を占める**（ベイズ平均のような重み付け補正が無い）。文言か実装のどちらかを合わせる必要がある |
 | M-5 | [reset-password.tsx](../src/pages/reset-password.tsx#L16) | `onAuthStateChange` を **unsubscribe していない**（[set-password.tsx](../src/pages/set-password.tsx#L43) はしている）。さらに `PASSWORD_RECOVERY` イベントのみ待つため、**リロードすると永久に「リセットリンクを確認中...」**のままになる |
@@ -82,6 +94,39 @@
 | M-7 | [insert-to-db.ts](../scripts/insert-to-db.ts#L125) | `description_ja` と `short_description_ja` に**同じ値**を入れている → 詳細画面の「ゲーム紹介」が一覧カードの短文と同じになる |
 | M-8 | [insert-to-db.ts](../scripts/insert-to-db.ts#L166) | `kindIdMap` / `genreIdMap` を**ローカル採番（`i+1`）**で作っており、DB の SERIAL id と一致する保証が無い。しかも `insertGameGenre`（[65行目](../scripts/insert-to-db.ts#L65)）は `sort()` せず `main()` は `sort()` する。**順序がずれるとジャンルタグが全件誤表示**になる。なお両関数は `main()` から呼ばれておらずデッドコードである |
 | M-9 | [insert-to-db.ts](../scripts/insert-to-db.ts#L132) | チャンク失敗を `console.error` するだけで処理を継続し、**exit code 0 で終了**する。部分投入に気づけない |
+
+### M-1・M-2 の対応状況（2026-08-09）
+
+指摘された不具合は**フェーズ2（`ed4e3e4`）で副次的に解消済み**である。サーバー側ページングへの移行に伴い `ranking.tsx` のクライアント側フィルタ判定が丸ごと削除され、絞り込みが [game-mapper.ts](../src/utils/game-mapper.ts#L132) の DB クエリへ移った結果、
+
+- **M-1** — `src/` から `parseInt` が消滅した。`play_time` が NULL の行は `lte`/`gte` の比較結果が SQL 上 NULL となり、WHERE 句から自然に除外される（三値論理）
+- **M-2** — 区間が `<=30` / `31〜60` / `61〜120` / `>120` となり、重複もギャップも無くなった。120分ちょうどは「重量級」にのみ該当する
+
+ただし、この移行の際に**表示側とフィルタ側の整合が取り切れておらず、派生した実害が2点残っていた**。これらは本ブランチ（`fix/play-time-filter-consistency`）で対応した。
+
+| # | 内容 | 対応 |
+|---|---|---|
+| ① | UI ラベルが `"超重量級(120分以上)"` だが実装は `gt("play_time", 120)` = 120分より長い。ラベルの数値と実際の下限が食い違い、120分のゲームがこの区分に出てこない | ラベルを `"超重量級(120分超)"` に変更し、実装に合わせた。実装を `gte 120` にすると重量級の `lte 120` と重複し M-2 が再発するため、文言側を合わせている |
+| ② | `mapRow` の `row.play_time ? ... : "不明"` が **truthy 判定**のため `0` を「不明」と表示する一方、フィルタの `lte("play_time", 30)` は `0` を通す。「軽量級」で絞ると「不明」表示のカードが並ぶ | 表示側を `row.play_time != null && row.play_time > 0` に改めて意図を明示し、フィルタ側の軽量級に `gte("play_time", 1)` を足して両者を揃えた |
+
+#### 実データによる裏付け（2026-08-09 時点・`T_GAME` 全 20,327 件）
+
+service role で `count=exact` を用いて件数を実測した結果、以下が判明した。
+
+| 条件 | 件数 |
+|---|---:|
+| `play_time IS NULL` | **0** |
+| `play_time = 0` | **554** |
+| `play_time = 120`（M-2 の境界） | **1,616** |
+| `play_time = 121` | **0**（120分超の最小値は125分） |
+
+- **M-1 の前提は実データと異なっていた** — NULL は1件も存在せず、「不明」表示の正体はすべて `play_time = 0` の554件である。したがって修正②は防御的措置ではなく、**「軽量級(～30分)」の結果 8,628件のうち554件が「不明」表示だった**という実害の解消にあたる（修正後は 8,074件）
+- **区分の網羅性** — 修正後の4区分は 8,074 + 5,827 + 3,520 + 2,352 = 19,773 となり、全件 20,327 から `play_time = 0` の554件を引いた数と一致する。重複もギャップも無い
+- **ラベルを「121分〜」ではなく「120分超」とした理由** — `play_time = 121` は0件で、120分超の最小値は125分である。実在しない境界値を UI に出さないため、実装 `gt(120)` と同義の「120分超」を採った
+
+> なお、この実測の過程で `gte.100&lte.130` の範囲クエリが**ちょうど1000件で頭打ち**になることを確認した。H-1 が指摘した PostgREST の1000行上限が実データで再現した形である（アプリ本体はフェーズ2で `range()` へ移行済みのため影響しない）。
+
+> **据え置き** — フェーズ3の設計方針が示す根治（`Game` 型を `playTime: string` から `playTimeMinutes: number \| null` へ変更し、表示用文字列をレンダリング時に組み立てる）は**未実施**である。整形済み文字列を後段で再パースするアンチパターンを型で封じる予防的リファクタリングとして価値は残っているが、実害のあるバグは上記①②で解消したため今回は見送った。
 
 ---
 
@@ -113,19 +158,42 @@ C-1（RLS）の作業も認証基盤とは独立している。ページのデ�
 
 | ID | 状態 | 対応内容 |
 |---|---|---|
-| C-1 | DDL は作成済み・**DB への適用は未実施** | 4テーブルへの `ENABLE ROW LEVEL SECURITY` を `docs/sql/enable_rls.sql` に用意した。ポリシーは意図的に0件（service role のみ到達可能）。**Supabase の SQL Editor での実行が別途必要**。`docs/sql/` はローカル専用フォルダのため、このファイルは版管理されず各自の作業環境にのみ存在する（[db/migrate.md](../.claude/commands/db/migrate.md) の運用に従う） |
-| C-2 | 対応済み | [session.ts](../src/utils/session.ts) を新設し、ログイン成功時に HMAC-SHA256 署名付きの httpOnly Cookie を発行。ランキング画面・ゲーム詳細画面の `getServerSideProps` で検証し、未ログインはログイン画面へリダイレクトする。ログアウトは専用 API で Cookie を破棄する。署名鍵は環境変数 `SESSION_SECRET`（[development-setup.md](development-setup.md#session_secret必須) 参照） |
-| C-3 | 対応済み | [register.ts](../src/pages/api/auth/register.ts) をリクエストボディの読み取り前に 403 で打ち切るようにした。登録再開時は許可リストまたはレート制限の導入が前提 |
+| C-1 | **対応済み**（2026-08-09、DDL 作成 + DB へ適用） | 4テーブルへの `ENABLE ROW LEVEL SECURITY` を `docs/sql/enable_rls.sql` に用意し、Supabase の SQL Editor で実行済み。ポリシーは意図的に0件とし、service role のみ到達可能な状態にしている（[db/migrate.md](../.claude/commands/db/migrate.md) の運用に従う）。適用後の実測は下記のとおり |
+| C-2 | 対応済み（2026-08-09、`f71234b`） | [session.ts](../src/utils/session.ts) を新設し、ログイン成功時に HMAC-SHA256 署名付きの httpOnly Cookie を発行。ランキング画面・ゲーム詳細画面の `getServerSideProps` で検証し、未ログインはログイン画面へリダイレクトする。ログアウトは専用 API で Cookie を破棄する。署名鍵は環境変数 `SESSION_SECRET`（[development-setup.md](development-setup.md#session_secret必須) 参照） |
+| C-3 | 対応済み（2026-08-09、`cb9c21e`） | [register.ts](../src/pages/api/auth/register.ts) をリクエストボディの読み取り前に 403 で打ち切るようにした。登録再開時は許可リストまたはレート制限の導入が前提 |
+
+#### C-1 適用後の実測（2026-08-09）
+
+anon キー（`NEXT_PUBLIC_SUPABASE_ANON_KEY`）で4テーブルに `select` を投げた結果、**すべて HTTP 401 `permission denied for table` で拒否された**。レビューが C-1 で懸念した「公開キーだけで `M_USER.password_hash` を読める」状態は解消している。
+
+ただし、このエラーの出方には注意が必要である。
+
+- `permission denied for table` は **RLS ではなくテーブル権限（GRANT）による拒否**である。RLS で行が絞られる場合は HTTP 200 で0件が返るため、メッセージが異なる
+- つまりこの実測が直接証明しているのは「anon ロールにテーブル権限が無い」ことであり、**RLS の有効化そのものを裏付けるものではない**。両者は独立した防御層であり、現状はその二層が重なっている状態と解釈できる
+- RLS の有効/無効は PostgREST 経由では確認できない（`pg_catalog` が公開スキーマに含まれないため）。確定させるには `docs/sql/enable_rls.sql` 末尾のコメントにある `pg_tables.rowsecurity` の検証クエリを SQL Editor で実行し、4テーブルすべてが `true` であることを確認する
 
 ### フェーズ構成
 
-| フェーズ | ブランチ | 内容 |
+当初の計画（下表の「内容」列）に対し、実際の実装は `fix/critical-and-high-issues` ブランチに統合され、PR #4（`9972a62`）でマージされた。**計画したブランチ名とは異なる**点に注意。
+
+| フェーズ | 計画ブランチ | 内容 | 状態 |
+|---|---|---|---|
+| 1 | `fix/security-rls` | RLS の DDL 追記（C-1）、招待メール API の 403 化（C-3）、メールアドレス列挙対策（M-6） | **一部**（C-1・C-3 は `cb9c21e` ほかで完了。**M-6 は未対応**） |
+| 2 | `fix/game-fetch-pagination` | `range()` によるサーバー側ページングと DB 側フィルタ（H-1・H-2）、`error` の握り潰し解消（H-4）、`useMemo` 化（H-3）、ランキング順序と UI 文言の一致（M-4） | **一部**（H-1・H-2・H-4 は `ed4e3e4` で完了。H-3 は計算自体の削除により実質解消。**M-4 は未対応**） |
+| — | （計画外） | httpOnly Cookie による自前セッションと画面の認可（C-2） | 完了（`f71234b`） |
+| 3 | `fix/filter-and-mapping-bugs` | complexity が null の場合の扱い（M-3）、0行更新の検査（H-5）と unsubscribe（M-5） | **一部**（H-5 は `cb9c21e` で完了。**M-3・M-5 は未対応**）。M-1・M-2 はフェーズ2で解消済みのため対象外 |
+| 3.5 | `fix/play-time-filter-consistency` | フェーズ2で残った時間フィルタの表示・文言の不整合（M-1・M-2 の派生①②）。詳細は[上記の対応状況](#m-1m-2-の対応状況2026-08-09)を参照 | 完了 |
+| 4 | `refactor/scripts-cleanup` | 投入スクリプトの ID 採番修正（M-7・M-8・M-9）、`parseCSV` の共通化、デッドコード削除、`StarRating` の切り出し | 未着手 |
+| 5 | — | `.env.example` とドキュメントの整合、`next/head`、アクセシビリティ、README の同期 | 未着手 |
+
+#### 計画に含まれていながら未対応の項目
+
+フェーズ1・2の実装時に漏れた2件である。どちらも今後のフェーズで拾う必要がある。
+
+| ID | 箇所 | 内容 |
 |---|---|---|
-| 1 | `fix/security-rls` | RLS の DDL 追記（C-1）、招待メール API の 403 化（C-3）、メールアドレス列挙対策（M-6） |
-| 2 | `fix/game-fetch-pagination` | `range()` によるサーバー側ページングと DB 側フィルタ（H-1・H-2）、`error` の握り潰し解消（H-4）、`useMemo` 化（H-3）、ランキング順序と UI 文言の一致（M-4） |
-| 3 | `fix/filter-and-mapping-bugs` | `Game` 型を数値フィールド保持に変更（M-1 の根治）、時間フィルタの境界修正（M-2）、complexity が null の場合の扱い（M-3）、0行更新の検査（H-5）と unsubscribe（M-5） |
-| 4 | `refactor/scripts-cleanup` | 投入スクリプトの ID 採番修正（M-7・M-8・M-9）、`parseCSV` の共通化、デッドコード削除、`StarRating` の切り出し |
-| 5 | — | `.env.example` とドキュメントの整合、`next/head`、アクセシビリティ、README の同期 |
+| M-6 | [forgot-password.ts:33](../src/pages/api/auth/forgot-password.ts#L33) | 未登録メールに 404 と「このメールアドレスは登録されていません。」を返しており、**メールアドレスの列挙が可能**な状態が続いている。フェーズ1の計画に含まれていたが実装されなかった |
+| M-4 | [ranking.tsx:433](../src/pages/ranking.tsx#L433) | UI は「評価数・スコアをもとに集計」と表示するが、実装は `rating_average` 降順で `users_rated` は同点時のタイブレークのみ（[game-mapper.ts:189](../src/utils/game-mapper.ts#L189)）。文言と実装の不一致が残っている |
 
 ### フェーズ2の設計方針
 
@@ -133,7 +201,9 @@ C-1（RLS）の作業も認証基盤とは独立している。ページのデ�
 
 ### フェーズ3の設計方針
 
-M-1 の根本原因は、`"3〜5人"` や `"60分"` のような**整形済み文字列を再度パースしている**点にある。`Game` 型を `minPlayers` / `maxPlayers` / `playTimeMinutes`（いずれも `number | null`）を保持する形に変更し、表示用の文字列はレンダリング時に組み立てる。
+M-1 の根本原因は、`"3〜5人"` や `"60分"` のような**整形済み文字列を再度パースしている**点にあった。`Game` 型を `minPlayers` / `maxPlayers` / `playTimeMinutes`（いずれも `number | null`）を保持する形に変更し、表示用の文字列はレンダリング時に組み立てる、というのが当初の方針である。
+
+ただしフェーズ2で絞り込みが DB 側へ移り、再パースを行うコードそのものが消えたため、**この型変更は実害の解消ではなく再発防止の位置づけに変わった**（現在 `Game.playTime` を参照しているのは [GameCard.tsx](../src/components/GameCard.tsx#L54) と [games/[id].tsx](../src/pages/games/[id].tsx#L105) の表示2箇所のみで、フィルタ処理は DB カラム `play_time` を直接見ている）。優先度を下げ、今回は実施しない。
 
 ---
 
@@ -145,8 +215,10 @@ M-1 の根本原因は、`"3〜5人"` や `"60分"` のような**整形済み�
 2. `npm run dev` で手動確認
    - **フェーズ1** — 招待メール API に POST すると 403 が返る。パスワード再設定フォームに未登録アドレスを入れても登録済みと同じメッセージが返る。ランキング画面・ゲーム詳細画面が従来どおり表示される（RLS 有効化で service role 経由の取得が壊れていないこと）
    - **フェーズ2** — ランキングの総件数が 1000 件を超えて表示される。**修正前に 1000 件で頭打ちになることを先に確認**しておくと差分がはっきりする。最終ページまでページ送りできる。検索文字の入力時に体感の引っかかりが無い
-   - **フェーズ3** — play_time が null のゲームが時間フィルタで除外される。120分のゲームが「重量級」のみに出る。complexity_average が null のゲームが難易度フィルタに出ない。`M_USER` に行が無いユーザーでパスワード再設定すると、成功メッセージではなくエラーになる
+   - **フェーズ3** — complexity_average が null のゲームが難易度フィルタに出ない。`M_USER` に行が無いユーザーでパスワード再設定すると、成功メッセージではなくエラーになる
+   - **フェーズ3.5** — 「超重量級(120分超)」で絞ると所要時間が**すべて120分より長い**（実データ上の最小は125分）。120分のゲームは「重量級」にのみ出る。「軽量級(～30分)」で絞ると**「不明」表示のカードが1件も出ず**、総件数が 8,628件から 8,074件に減る。一方、時間フィルタ未選択時には「不明」のゲーム554件が従来どおり一覧に出る（下限条件が無条件に効いていないこと）
    - **フェーズ4** — `npm run seed:insert` をテスト用の小さい CSV で実行し、`T_GAME.game_domain_id` が `M_GAME_GENRE.id` と実際に一致することを SQL で突き合わせる
 3. RLS は Supabase ダッシュボードで各テーブルの有効状態を確認し、あわせて **anon キーで `M_USER` を select して 0件またはエラーになる**ことを確認する
+   - anon キーからの到達不可は**実測済み**（4テーブルとも HTTP 401）。ただしそれは GRANT による拒否であり RLS の有効化を意味しないため、`pg_tables.rowsecurity` が4テーブルとも `true` であることの確認は別途必要である。詳細は[C-1 適用後の実測](#c-1-適用後の実測2026-08-09)を参照
 
 > 自動テスト基盤（Jest・Vitest 等）は未導入である。フェーズ3のフィルタ・マッピングのロジックは純関数であるため、テスト基盤の導入とあわせてユニットテストを書く価値が高い。
