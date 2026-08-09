@@ -19,7 +19,6 @@ data/test-output.json
 # 末尾を「/*」にして「中身を除外する」指定にすること。
 docs/sql/*
 !docs/sql/create_game_tables.sql
-!docs/sql/enable_rls.sql
 !docs/sql/update_description_ja.sql
 
 # Claude Code 個人設定（チーム共有しない）

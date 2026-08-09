@@ -16,10 +16,10 @@ npm install
 ## 環境変数の設定
 
 ```bash
-cp .env.example .env
+cp .env.example .env.local
 ```
 
-`.env` を編集して必要な値を設定してください。
+`.env.local` を編集して必要な値を設定してください。Next.js の開発サーバーと `seed:*` の npm スクリプト（`--env-file=.env.local`）が実際に読むのはこのファイルです。`.gitignore` で除外されているためコミットされません。
 
 ### SESSION_SECRET（必須）
 
@@ -34,13 +34,24 @@ cp .env.example .env
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 
-生成した値を `.env.local` に追記します。Next.js の開発サーバーと `seed:*` の npm スクリプト（`--env-file=.env.local`）が実際に読むのはこのファイルです。`.gitignore` で除外されているためコミットされません。
+生成した値を `.env.local` に追記します。
 
 ```
 SESSION_SECRET=<生成したランダム文字列>
 ```
 
 > 鍵を変更すると、発行済みのセッションはすべて無効になり再ログインが必要になります。
+
+### NEXT_PUBLIC_SITE_URL
+
+招待メール・パスワードリセットメールに埋め込むリンクのベース URL です。
+[register.ts](../src/pages/api/auth/register.ts) と [forgot-password.ts](../src/pages/api/auth/forgot-password.ts) が参照します。
+
+```
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+```
+
+**未設定のときは `http://localhost:3000` にフォールバックします。** ローカル開発では問題になりませんが、本番環境で未設定のままだと、利用者に届くメールのリンク先が `http://localhost:3000` になり再設定が完了できません。**Vercel の環境変数に本番ドメインを必ず設定してください。**
 
 ## Git フックの登録
 
@@ -68,6 +79,7 @@ npm run build
 
 ## テスト
 
-```bash
-npm test
-```
+自動テストのフレームワーク（Jest・Vitest 等）は未導入で、`package.json` に `test` スクリプトはありません。
+`/test` コマンドもその旨を報告するだけです。
+
+プッシュ前の総点検には `/check`（ドキュメント参照先検査 → lint → 型検査 → 本番ビルド）を使ってください。

@@ -1,21 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseCSV } from "./lib/csv.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-type GameRecord = Record<string, string>;
 type DescriptionResult = { name_ja: string; short_description_ja: string };
-
-function parseCSV(filePath: string): GameRecord[] {
-  const content = fs.readFileSync(filePath, "utf-8");
-  const lines = content.split("\n").filter((line) => line.trim());
-  const headers = lines[0].split(";").map((h) => h.trim());
-  return lines.slice(1).map((line) => {
-    const values = line.split(";");
-    return Object.fromEntries(headers.map((h, i) => [h, (values[i] ?? "").trim()]));
-  });
-}
 
 function parseNum(value: string): number | null {
   const n = parseFloat(value.replace(",", "."));

@@ -1,6 +1,7 @@
 import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import Head from "next/head";
 import { supabase } from "@/utils/supabase";
 import { validatePassword, PASSWORD_POLICY_DESCRIPTION } from "@/utils/password-policy";
 
@@ -103,92 +104,111 @@ export default function ResetPasswordPage() {
 
   if (status === "checking") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
-        <div className="text-center">
-          <p className="text-gray-500 text-sm">リセットリンクを確認中...</p>
-          <p className="text-xs text-gray-400 mt-2">
-            このページにはメールのリンクからアクセスしてください。
-          </p>
-          <Link href="/" className="text-indigo-500 hover:underline text-xs mt-4 block">
-            ログインに戻る
-          </Link>
+      <>
+        <Head>
+          <title>パスワード再設定 | ボードゲームランキング</title>
+        </Head>
+        <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">リセットリンクを確認中...</p>
+            <p className="text-xs text-gray-400 mt-2">
+              このページにはメールのリンクからアクセスしてください。
+            </p>
+            <Link href="/" className="text-indigo-500 hover:underline text-xs mt-4 block">
+              ログインに戻る
+            </Link>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   if (status === "invalid") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
-        <div className="text-center">
-          <p className="text-gray-500 text-sm">
-            リセットリンクが無効か、有効期限が切れています。
-          </p>
-          <Link
-            href="/forgot-password"
-            className="text-indigo-500 hover:underline text-xs mt-4 block"
-          >
-            パスワード再設定をやり直す
-          </Link>
-          <Link href="/" className="text-indigo-500 hover:underline text-xs mt-2 block">
-            ログインに戻る
-          </Link>
+      <>
+        <Head>
+          <title>パスワード再設定 | ボードゲームランキング</title>
+        </Head>
+        <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">
+              リセットリンクが無効か、有効期限が切れています。
+            </p>
+            <Link
+              href="/forgot-password"
+              className="text-indigo-500 hover:underline text-xs mt-4 block"
+            >
+              パスワード再設定をやり直す
+            </Link>
+            <Link href="/" className="text-indigo-500 hover:underline text-xs mt-2 block">
+              ログインに戻る
+            </Link>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <img src="/img/boardgemeTop.png" alt="ボードゲームランキング" className="w-16 h-16 mb-4 rounded-2xl shadow-lg object-cover" />
-          <h1 className="text-2xl font-bold text-gray-900">新しいパスワードの設定</h1>
-        </div>
+    <>
+      <Head>
+        <title>パスワード再設定 | ボードゲームランキング</title>
+      </Head>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <img src="/img/boardgemeTop.png" alt="ボードゲームランキング" className="w-16 h-16 mb-4 rounded-2xl shadow-lg object-cover" />
+            <h1 className="text-2xl font-bold text-gray-900">新しいパスワードの設定</h1>
+          </div>
 
-        <div className="bg-white rounded-2xl shadow-lg p-8">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <p className="text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">{PASSWORD_POLICY_DESCRIPTION}</p>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">新しいパスワード</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="例: Password1!"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
-              />
-            </div>
+          <div className="bg-white rounded-2xl shadow-lg p-8">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <p className="text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">{PASSWORD_POLICY_DESCRIPTION}</p>
+              <div>
+                <label htmlFor="reset-password-new" className="block text-sm font-medium text-gray-700 mb-1">新しいパスワード</label>
+                <input
+                  id="reset-password-new"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="例: Password1!"
+                  autoComplete="new-password"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">新しいパスワード（確認）</label>
-              <input
-                type="password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                placeholder="もう一度入力"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
-              />
-            </div>
+              <div>
+                <label htmlFor="reset-password-confirm" className="block text-sm font-medium text-gray-700 mb-1">新しいパスワード（確認）</label>
+                <input
+                  id="reset-password-confirm"
+                  type="password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  placeholder="もう一度入力"
+                  autoComplete="new-password"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+                />
+              </div>
 
-            {error && (
-              <p className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
-            )}
+              {error && (
+                <p className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+              )}
 
-            {success && (
-              <p className="text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg">{success}</p>
-            )}
+              {success && (
+                <p className="text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg">{success}</p>
+              )}
 
-            <button
-              type="submit"
-              disabled={loading || !!success}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-semibold py-2.5 rounded-lg transition text-sm"
-            >
-              {loading ? "更新中..." : "パスワードを更新"}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={loading || !!success}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-semibold py-2.5 rounded-lg transition text-sm"
+              >
+                {loading ? "更新中..." : "パスワードを更新"}
+              </button>
+            </form>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
