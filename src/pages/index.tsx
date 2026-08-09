@@ -34,8 +34,6 @@ export default function LoginPage() {
         return;
       }
 
-      // ログイン情報をセッションストレージに保存
-      sessionStorage.setItem("user", JSON.stringify(data.user));
       router.push("/ranking");
     } catch {
       setError("通信エラーが発生しました。しばらく経ってから再度お試しください。");

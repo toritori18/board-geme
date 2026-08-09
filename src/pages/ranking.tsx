@@ -5,6 +5,8 @@ import GameCard from "@/components/GameCard";
 import type { Game } from "@/types/game";
 import { fetchGamesPage, fetchGenres } from "@/utils/game-mapper";
 import type { GameFilters, GameSort } from "@/utils/game-mapper";
+import { getSessionUser } from "@/utils/session";
+import { logout } from "@/utils/logout";
 
 type Tab = "search" | "ranking";
 
@@ -51,7 +53,11 @@ function getStringParam(value: string | string[] | undefined): string {
   return value ?? "";
 }
 
-export const getServerSideProps: GetServerSideProps<Props> = async ({ query }) => {
+export const getServerSideProps: GetServerSideProps<Props> = async ({ req, query }) => {
+  if (!getSessionUser(req)) {
+    return { redirect: { destination: "/", permanent: false } };
+  }
+
   const tab: Tab = query.tab === "ranking" ? "ranking" : "search";
   const rawPage = Number(getStringParam(query.page));
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1;
@@ -146,6 +152,11 @@ export default function RankingPage({
   // shallow: false（デフォルト）でgetServerSidePropsを再実行させ、DBから再取得する
   const pushQuery = (next: Record<string, string>) => {
     void router.push({ pathname: "/ranking", query: next });
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
   };
 
   const handleLogoClick = () => {
@@ -255,7 +266,7 @@ export default function RankingPage({
             <span className="font-bold text-gray-900 text-sm">ボードゲームランキング</span>
           </button>
           <button
-            onClick={() => router.push("/")}
+            onClick={() => void handleLogout()}
             className="text-sm text-gray-500 hover:text-indigo-600 transition"
           >
             ログアウト

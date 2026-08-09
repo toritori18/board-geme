@@ -3,13 +3,19 @@ import Link from "next/link";
 import type { GetServerSideProps } from "next";
 import type { Game } from "@/types/game";
 import { fetchGameById } from "@/utils/game-mapper";
+import { getSessionUser } from "@/utils/session";
+import { logout } from "@/utils/logout";
 
 type Props = {
   game: Game | null;
   rank: number;
 };
 
-export const getServerSideProps: GetServerSideProps<Props> = async ({ params }) => {
+export const getServerSideProps: GetServerSideProps<Props> = async ({ req, params }) => {
+  if (!getSessionUser(req)) {
+    return { redirect: { destination: "/", permanent: false } };
+  }
+
   const id = Number(params?.id);
   if (isNaN(id)) return { props: { game: null, rank: 0 } };
   const { game, bggRank } = await fetchGameById(id);
@@ -37,6 +43,11 @@ function StarRating({ rating }: { rating: number }) {
 export default function GameDetailPage({ game, rank }: Props) {
   const router = useRouter();
 
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
+  };
+
   if (!game) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center">
@@ -61,7 +72,7 @@ export default function GameDetailPage({ game, rank }: Props) {
             </span>
           </Link>
           <button
-            onClick={() => router.push("/")}
+            onClick={() => void handleLogout()}
             className="text-sm text-gray-500 hover:text-indigo-600 transition"
           >
             ログアウト

@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import bcrypt from "bcryptjs";
 import { supabaseAdmin } from "@/utils/supabase-admin";
+import { buildSessionCookie, createSessionToken } from "@/utils/session";
 
 type MUser = {
   id: string;
@@ -58,13 +59,27 @@ export default async function handler(
     });
   }
 
+  const sessionUser = {
+    id: user.id,
+    email: user.email,
+    name: user.user_name,
+  };
+
+  try {
+    const token = createSessionToken(sessionUser);
+    res.setHeader("Set-Cookie", buildSessionCookie(token));
+  } catch {
+    // SESSION_SECRET 未設定など、サーバー側の設定不備。
+    // 何が不足しているかを外部に漏らさないよう、汎用的なメッセージのみ返す。
+    return res.status(500).json({
+      success: false,
+      message: "サーバーの設定が不足しているためログインできません。",
+    });
+  }
+
   return res.status(200).json({
     success: true,
     message: "ログイン成功",
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.user_name,
-    },
+    user: sessionUser,
   });
 }
