@@ -5,7 +5,7 @@
 ## 機能
 
 - ボードゲームの検索（キーワード・プレイ人数・所要時間・難易度・ジャンルで絞り込み）
-- 評価スコア順の人気ランキング表示
+- BoardGameGeek 公表のランキング順の表示
 - ユーザー認証（ログイン・新規登録）
 
 ## 技術スタック
@@ -76,8 +76,9 @@ board-geme/
 │   ├── development-setup.md  # セットアップガイド
 │   ├── contributing.md        # コントリビュートガイド
 │   ├── powershell-contributing.md  # PowerShell（`.ps1`）のコーディング規約
-│   └── sql/                    # DBスキーマSQL（Supabase SQL Editorで実行）
+│   └── sql/                    # スキーマDDL・データ修正SQL（Supabase SQL Editorで実行）
 ├── scripts/                 # データ投入・バッチ処理スクリプト
+│   └── lib/                 # ユーティリティモジュール
 └── tests/                   # テスト
 ```
 

@@ -29,8 +29,6 @@ export type GameFilters = {
   genre?: string; // ジャンル名
 };
 
-export type GameSort = "rank" | "rating";
-
 async function buildGenreMap(): Promise<Map<number, string>> {
   const { data, error } = await supabaseAdmin
     .from("M_GAME_GENRE")
@@ -116,9 +114,8 @@ export async function fetchGamesPage(params: {
   page: number;
   pageSize: number;
   filters: GameFilters;
-  sort: GameSort;
 }): Promise<{ games: Game[]; total: number }> {
-  const { page, pageSize, filters, sort } = params;
+  const { page, pageSize, filters } = params;
   const genreMap = await buildGenreMap();
 
   // ジャンル名からIDを引けない場合、該当するゲームは存在しないので即0件を返す
@@ -192,18 +189,9 @@ export async function fetchGamesPage(params: {
     }
   }
 
-  if (sort === "rank") {
-    queryBuilder = queryBuilder.order("bgg_rank", { ascending: true, nullsFirst: false });
-  } else {
-    // PostgreSQLのORDER BYはデフォルトでNULLを「他のどの値よりも大きい」扱いとするため、
-    // 降順(DESC)の既定はNULLS FIRSTとなりNULLが先頭に来てしまう
-    // （出典: https://www.postgresql.org/docs/current/queries-order.html ）。
-    // mapRow() ではrating_averageがNULLの行を0点として扱っており実質最下位のはずなので、
-    // 現行のランキングタブの並び（評価0点は下位）を再現するため nullsFirst: false を明示する。
-    queryBuilder = queryBuilder
-      .order("rating_average", { ascending: false, nullsFirst: false })
-      .order("users_rated", { ascending: false, nullsFirst: false });
-  }
+  // ランキング・検索とも BoardGameGeek 公表の順位（bgg_rank 昇順）で並べる。
+  // rating_average 降順では評価数30件台のゲームが上位を占め、「人気ランキング」として成立しない。
+  queryBuilder = queryBuilder.order("bgg_rank", { ascending: true, nullsFirst: false });
 
   const from = (page - 1) * pageSize;
   const to = page * pageSize - 1;

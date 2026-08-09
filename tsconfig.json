@@ -9,6 +9,12 @@
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    // scripts/ 配下は `node --import tsx/esm`（tsx 4.22.3 / Node.js v24.15.0）で実行される。
+    // この構成では相対 import に .ts 拡張子の明記が必須で、拡張子なし・.js のどちらも
+    // 実行時に MODULE_NOT_FOUND になる（scripts/lib/csv.ts の import で実測）。
+    // .ts 拡張子の import は既定では型検査が通らないため、このオプションで許可する。
+    // noEmit: true が前提の設定であり、本プロジェクトはそれを満たしている。
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
