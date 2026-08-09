@@ -91,7 +91,8 @@ function mapRow(row: DbGame, genreMap: Map<number, string>): Game {
     description: row.description_ja ?? "",
     shortDescription: row.short_description_ja ?? "",
     players,
-    playTime: row.play_time ? `${row.play_time}分` : "不明",
+    // play_time は 0 が「所要時間データ無し」を意味するため、NULL と同じく「不明」として扱う
+    playTime: row.play_time != null && row.play_time > 0 ? `${row.play_time}分` : "不明",
     minAge: row.min_age ?? 0,
     rating: Number(row.rating_average ?? 0),
     votes: row.users_rated ?? 0,
@@ -135,8 +136,10 @@ export async function fetchGamesPage(params: {
   // NULLの行が全時間フィルタを素通りしてしまう不具合」と、
   // 「境界が `max < 120` だったため120分ちょうどのゲームが
   // 重量級・超重量級の両方に重複計上される不具合」がどちらも解消される。
+  // 軽量級のみ下限(gte 1)を付ける。play_time = 0 は mapRow() で「不明」表示となるため、
+  // フィルタ側でも除外して表示と絞り込みの整合を取る。
   if (filters.playTime === "30") {
-    queryBuilder = queryBuilder.lte("play_time", 30);
+    queryBuilder = queryBuilder.gte("play_time", 1).lte("play_time", 30);
   } else if (filters.playTime === "60") {
     queryBuilder = queryBuilder.gte("play_time", 31).lte("play_time", 60);
   } else if (filters.playTime === "120") {

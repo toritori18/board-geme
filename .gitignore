@@ -13,9 +13,13 @@ scripts/batch-ids.json
 data/batch-results.json
 data/mechanics-translations.json
 data/test-output.json
-# docs/sql/ はローカル運用のみのフォルダ。data/ から生成した巨大な INSERT ダンプ
-# （計約 9.8MB）を含むため、スキーマ定義（DDL）も含めてフォルダごと追跡対象外にする。
-docs/sql/
+# docs/sql/ は data/ から生成した巨大な INSERT ダンプ（計約 9.8MB）を含むため、
+# 中身を既定で追跡対象外にする。ただしスキーマ定義（DDL）はソースと同じく版管理する。
+# フォルダ自体（docs/sql/）を除外すると配下の再包含（!）が効かなくなるため、
+# 末尾を「/*」にして「中身を除外する」指定にすること。
+docs/sql/*
+!docs/sql/create_game_tables.sql
+!docs/sql/enable_rls.sql
 
 # Claude Code 個人設定（チーム共有しない）
 .claude/settings.local.json

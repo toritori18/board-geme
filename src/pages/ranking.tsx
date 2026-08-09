@@ -22,7 +22,7 @@ const PLAY_TIME_OPTIONS = [
   { value: "30", label: "軽量級(～30分)" },
   { value: "60", label: "中量級(31〜60分)" },
   { value: "120", label: "重量級(61〜120分)" },
-  { value: "121", label: "超重量級(120分以上)" },
+  { value: "121", label: "超重量級(120分超)" },
 ];
 
 const DIFFICULTY_OPTIONS = [
