@@ -11,15 +11,42 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
-  const [ready, setReady] = useState(false);
+  const [status, setStatus] = useState<"checking" | "ready" | "invalid">("checking");
 
   useEffect(() => {
-    // Supabase がURLハッシュのトークンを処理してセッションを確立するのを待つ
-    supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
-        setReady(true);
+    // Supabase がURLのトークンを処理してセッションを確立するのを待つ。
+    // PASSWORD_RECOVERY はURLにトークンが載った初回アクセス時にしか発火せず、
+    // リロード後は発火しない。購読時に必ず届く INITIAL_SESSION と
+    // getSession() の2経路を足して、リロードでも復帰できるようにする。
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (
+        session &&
+        (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN" || event === "INITIAL_SESSION")
+      ) {
+        setStatus("ready");
       }
     });
+
+    const init = async () => {
+      // PKCE flow: リダイレクト時に ?code= が付与される場合は明示的に交換する
+      const code = new URLSearchParams(window.location.search).get("code");
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (!error) {
+          setStatus("ready");
+          return;
+        }
+      }
+      // getSession() は内部で初期化（URLのトークン処理）の完了を待つため、
+      // ここで session が無ければリンクが無効・期限切れと判断してよい
+      const { data: { session } } = await supabase.auth.getSession();
+      // PASSWORD_RECOVERY を先に受け取っていた場合に invalid へ引き戻さない
+      setStatus((prev) => (session ? "ready" : prev === "ready" ? prev : "invalid"));
+    };
+
+    init();
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -74,7 +101,7 @@ export default function ResetPasswordPage() {
     setTimeout(() => router.push("/"), 2000);
   };
 
-  if (!ready) {
+  if (status === "checking") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
         <div className="text-center">
@@ -83,6 +110,27 @@ export default function ResetPasswordPage() {
             このページにはメールのリンクからアクセスしてください。
           </p>
           <Link href="/" className="text-indigo-500 hover:underline text-xs mt-4 block">
+            ログインに戻る
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "invalid") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <p className="text-gray-500 text-sm">
+            リセットリンクが無効か、有効期限が切れています。
+          </p>
+          <Link
+            href="/forgot-password"
+            className="text-indigo-500 hover:underline text-xs mt-4 block"
+          >
+            パスワード再設定をやり直す
+          </Link>
+          <Link href="/" className="text-indigo-500 hover:underline text-xs mt-2 block">
             ログインに戻る
           </Link>
         </div>

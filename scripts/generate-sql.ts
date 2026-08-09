@@ -152,7 +152,9 @@ function main() {
         `${lit(parseNum(g["Rating Average"]))}, ` +
         `${lit(parseInt2(g["BGG Rank"]))}, ` +
         `${lit(parseNum(g["Complexity Average"]))}, ` +
-        `${lit(desc.short_description_ja)}, ` +
+        // 長文説明は未生成のため NULL を出力する。短文の複製を出力すると詳細ページの
+        // 「ゲーム紹介」が一覧カードと同じ文になる（レビューの M-7）。
+        `${lit(null)}, ` +
         `${lit(desc.short_description_ja)}, ` +
         `${arrLit(typeIds)}, ` +
         `${arrLit(domIds)}` +

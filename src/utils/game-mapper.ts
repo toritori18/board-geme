@@ -80,15 +80,26 @@ function mapRow(row: DbGame, genreMap: Map<number, string>): Game {
   const minP = row.min_players ?? 1;
   const maxP = row.max_players ?? 1;
   const players = minP === maxP ? `${minP}人` : `${minP}〜${maxP}人`;
-  const complexity = Number(row.complexity_average ?? 0);
+  // complexity_average は 1〜5 が有効値で、0 は「難易度データ無し」を意味する
+  // （実データ: 20,327件中 NULL は0件、0 は426件、0より大きい最小値は 1）。
+  // NULL と同じく「不明」として扱い、データ欠損を「易しい」と誤認させない。
+  const complexity = row.complexity_average;
   const difficulty =
-    complexity < 2.0 ? "初心者向け" : complexity <= 3.5 ? "中級者向け" : "上級者向け";
+    complexity == null || complexity <= 0
+      ? "不明"
+      : complexity < 2.0
+        ? "初心者向け"
+        : complexity <= 3.5
+          ? "中級者向け"
+          : "上級者向け";
 
   return {
     id: row.id,
     name: row.game_name_ja ?? row.game_name,
     nameEn: row.game_name,
-    description: row.description_ja ?? "",
+    // description_ja は長文説明用だが未生成（実データ: 20,327件中 9,985件が空文字）。
+    // 空のときは短文で代替し、どちらも無ければ空文字のまま表示側でセクションを畳む。
+    description: row.description_ja || row.short_description_ja || "",
     shortDescription: row.short_description_ja ?? "",
     players,
     // play_time は 0 が「所要時間データ無し」を意味するため、NULL と同じく「不明」として扱う
@@ -148,12 +159,12 @@ export async function fetchGamesPage(params: {
     queryBuilder = queryBuilder.gt("play_time", 120);
   }
 
-  // 難易度の境界は mapRow() のラベル付け（complexity_average ?? 0 を用いるため
-  // NULL は「初心者向け」に分類される）と必ず一致させる。NULLを初心者向けに含めるのは
-  // データ欠損を「易しい」と誤認させる既知の課題（レビューのM-3）だが、今回の修正対象外
-  // なので、表示（mapRow）と絞り込みの整合を優先する。
+  // 難易度の境界は mapRow() のラベル付けと必ず一致させる。
+  // complexity_average = 0 は mapRow() で「不明」表示となるため、初心者向けに下限(gt 0)を
+  // 付けてフィルタ側からも除外する。NULL は gt/lt の比較結果が SQL 上 NULL となり
+  // WHERE 句から自然に除外されるため、明示的な条件は不要（三値論理）。
   if (filters.difficulty === "初心者向け") {
-    queryBuilder = queryBuilder.or("complexity_average.lt.2.0,complexity_average.is.null");
+    queryBuilder = queryBuilder.gt("complexity_average", 0).lt("complexity_average", 2.0);
   } else if (filters.difficulty === "中級者向け") {
     queryBuilder = queryBuilder.gte("complexity_average", 2.0).lte("complexity_average", 3.5);
   } else if (filters.difficulty === "上級者向け") {
