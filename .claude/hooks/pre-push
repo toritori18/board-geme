@@ -58,9 +58,25 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     check_pattern 'Password=[A-Za-z0-9!@#$%^&*()_+]{3,}' "接続文字列パスワード"
 
     # .env ファイルチェック
-    if echo "$CHANGED_FILES" | grep -E '\.env' > /dev/null 2>&1; then
+    # .env.example などのテンプレートは値がプレースホルダで、意図的に追跡しているため
+    # ブロック対象から外す。ただし「.env」を含む他のパス（prod.env, config/app.env 等）は
+    # 従来どおり検出したいので、テンプレートの完全なベース名だけを除外する。
+    ENV_TEMPLATES=$(echo "$CHANGED_FILES" | grep -E '(^|/)\.env\.(example|sample|template)$')
+    ENV_FILES=$(echo "$CHANGED_FILES" | grep -E '\.env' \
+        | grep -vE '(^|/)\.env\.(example|sample|template)$')
+
+    # 除外したテンプレートは黙殺せず通知する。
+    # .env 形式の「KEY=value」は内容パターン検査（引用符必須）に掛からないため、
+    # 中身に本物の値が混ざっていないかは人の目で確認する必要がある。
+    if [ -n "$ENV_TEMPLATES" ]; then
+        echo "[情報] テンプレートのためブロック対象外（中身がプレースホルダか確認すること）:"
+        echo "$ENV_TEMPLATES"
+        echo ""
+    fi
+
+    if [ -n "$ENV_FILES" ]; then
         echo "[警告] .env ファイルがコミットに含まれています:"
-        echo "$CHANGED_FILES" | grep -E '\.env'
+        echo "$ENV_FILES"
         echo ""
         FOUND=1
     fi
