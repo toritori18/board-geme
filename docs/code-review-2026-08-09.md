@@ -19,7 +19,7 @@
 
 ### C-1. RLS が一切設定されていない
 
-- [create_game_tables.sql](sql/create_game_tables.sql) に `ENABLE ROW LEVEL SECURITY` / `CREATE POLICY` が**1行も無い**（リポジトリ全体を検索して0件）
+- スキーマ定義 `docs/sql/create_game_tables.sql` に `ENABLE ROW LEVEL SECURITY` / `CREATE POLICY` が**1行も無い**（リポジトリ全体を検索して0件）。なお `docs/sql/` は `.gitignore` で追跡対象外のローカル専用フォルダのため、リンクではなくパスのみを記載する
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` は [supabase.ts](../src/utils/supabase.ts#L4) 経由でパスワード設定画面・パスワード再設定画面が import しており、**クライアントバンドルに同梱される＝公開情報**である
 - RLS が無効なら、この公開キーだけで `M_USER` の `password_hash` を `select` でき、`update` も通る
 
@@ -90,7 +90,7 @@
 - **重複コード** — `StarRating` が [GameCard.tsx](../src/components/GameCard.tsx#L10) とゲーム詳細ページにほぼ同一実装で存在する。`parseCSV` は `scripts/` の6ファイル中5ファイルにコピペされている（`;` 区切りの split でクォート非対応）
 - **デッドコード** — [generate-game-sql.ts](../scripts/generate-game-sql.ts) は `generate-sql.ts` とほぼ重複で、npm スクリプトに未登録、かつ**出力先ファイルが同一**である。[games.json](../src/data/games.json) はどこからも import されていない
 - **環境変数** — `NEXT_PUBLIC_SITE_URL` が [register.ts](../src/pages/api/auth/register.ts#L26) と [forgot-password.ts](../src/pages/api/auth/forgot-password.ts#L40) で使われているが `.env.example` に記載が無い。未設定だと本番から `http://localhost:3000` へのリンク入りメールが送信される
-- **ドキュメント不整合** — [setup.md](setup.md) は `cp .env.example .env` と案内しているが、Next.js も npm スクリプト（`--env-file=.env.local`）も読むのは `.env.local` である。同ドキュメント末尾の `npm test` は `package.json` に存在しない
+- **ドキュメント不整合** — [development-setup.md](development-setup.md) は `cp .env.example .env` と案内しているが、Next.js も npm スクリプト（`--env-file=.env.local`）も読むのは `.env.local` である。同ドキュメント末尾の `npm test` は `package.json` に存在しない
 - **アクセシビリティ** — 全フォームの `<label>` に `htmlFor` / `id` の紐付けが無い。`autoComplete` 属性も未設定である
 - **SEO・メタ情報** — `next/head` がリポジトリ全体で0件のため、全ページ `<title>` が未設定である。`next/image` も0件で生の `<img>` を使用している
 - **パスワードポリシー** — [password-policy.ts](../src/utils/password-policy.ts#L6) の記号セットが `!@#$*-_?` に限定されており、`%` や `&` しか含まないパスワードが弾かれる
@@ -113,8 +113,8 @@ C-1（RLS）の作業も認証基盤とは独立している。ページのデ�
 
 | ID | 状態 | 対応内容 |
 |---|---|---|
-| C-1 | コード上は対応済み・**DB への適用は未実施** | 4テーブルへの `ENABLE ROW LEVEL SECURITY` を [enable_rls.sql](sql/enable_rls.sql) に用意した。ポリシーは意図的に0件（service role のみ到達可能）。**Supabase の SQL Editor での実行が別途必要** |
-| C-2 | 対応済み | [session.ts](../src/utils/session.ts) を新設し、ログイン成功時に HMAC-SHA256 署名付きの httpOnly Cookie を発行。ランキング画面・ゲーム詳細画面の `getServerSideProps` で検証し、未ログインはログイン画面へリダイレクトする。ログアウトは専用 API で Cookie を破棄する。署名鍵は環境変数 `SESSION_SECRET`（[setup.md](setup.md#session_secret必須) 参照） |
+| C-1 | DDL は作成済み・**DB への適用は未実施** | 4テーブルへの `ENABLE ROW LEVEL SECURITY` を `docs/sql/enable_rls.sql` に用意した。ポリシーは意図的に0件（service role のみ到達可能）。**Supabase の SQL Editor での実行が別途必要**。`docs/sql/` はローカル専用フォルダのため、このファイルは版管理されず各自の作業環境にのみ存在する（[db/migrate.md](../.claude/commands/db/migrate.md) の運用に従う） |
+| C-2 | 対応済み | [session.ts](../src/utils/session.ts) を新設し、ログイン成功時に HMAC-SHA256 署名付きの httpOnly Cookie を発行。ランキング画面・ゲーム詳細画面の `getServerSideProps` で検証し、未ログインはログイン画面へリダイレクトする。ログアウトは専用 API で Cookie を破棄する。署名鍵は環境変数 `SESSION_SECRET`（[development-setup.md](development-setup.md#session_secret必須) 参照） |
 | C-3 | 対応済み | [register.ts](../src/pages/api/auth/register.ts) をリクエストボディの読み取り前に 403 で打ち切るようにした。登録再開時は許可リストまたはレート制限の導入が前提 |
 
 ### フェーズ構成

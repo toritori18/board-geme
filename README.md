@@ -27,7 +27,7 @@
 |---|---|
 | ログイン | `supabase.auth` を使わず、`M_USER.password_hash` を `bcryptjs` で照合（[login.ts](src/pages/api/auth/login.ts)） |
 | パスワード再設定・初期設定 | Supabase Auth（`resetPasswordForEmail` / `exchangeCodeForSession` / `updateUser`）を使い、**併せて `M_USER.password_hash` も更新する**（[reset-password.ts](src/pages/api/auth/reset-password.ts) / [set-password.ts](src/pages/api/auth/set-password.ts)） |
-| ログイン後のセッション | Supabase Auth のセッションではなく、自前の HMAC-SHA256 署名付き httpOnly Cookie（[session.ts](src/utils/session.ts)）。ログイン成功時に発行し、`getServerSideProps` で検証する。署名鍵は環境変数 `SESSION_SECRET`（[docs/setup.md](docs/setup.md#session_secret必須)） |
+| ログイン後のセッション | Supabase Auth のセッションではなく、自前の HMAC-SHA256 署名付き httpOnly Cookie（[session.ts](src/utils/session.ts)）。ログイン成功時に発行し、`getServerSideProps` で検証する。署名鍵は環境変数 `SESSION_SECRET`（[docs/development-setup.md](docs/development-setup.md#session_secret必須)） |
 
 片方だけを更新すると、新しいパスワードでログインできなくなります。
 
