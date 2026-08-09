@@ -87,9 +87,10 @@ async function insertGames(
   descriptionMap: Record<string, DescriptionResult>,
   kindIdMap: Record<string, number>,
   genreIdMap: Record<string, number>
-) {
+): Promise<{ inserted: number; failedChunks: number }> {
   const CHUNK = 500;
   let inserted = 0;
+  let failedChunks = 0;
   console.log(`\nT_GAMEに挿入中... (${games.length}件)`);
 
   for (let i = 0; i < games.length; i += CHUNK) {
@@ -122,7 +123,9 @@ async function insertGames(
         rating_average: parseNumber(g["Rating Average"]),
         bgg_rank: parseIntOrNull(g["BGG Rank"]),
         complexity_average: parseNumber(g["Complexity Average"]),
-        description_ja: desc.short_description_ja,
+        // 長文説明は未生成のため NULL を入れる。短文の複製を入れると詳細ページの
+        // 「ゲーム紹介」が一覧カードと同じ文になる（レビューの M-7）。
+        description_ja: null,
         short_description_ja: desc.short_description_ja,
         game_type_id: typeIds.length > 0 ? typeIds : null,
         game_domain_id: domainIds.length > 0 ? domainIds : null,
@@ -132,6 +135,7 @@ async function insertGames(
     const { error } = await supabase.from("T_GAME").upsert(rows);
     if (error) {
       console.error(`  チャンク ${i}〜${i + CHUNK} でエラー:`, error.message);
+      failedChunks++;
     } else {
       inserted += validChunk.length;
       process.stdout.write(`\r  ${inserted}/${games.length} 件完了`);
@@ -139,6 +143,8 @@ async function insertGames(
   }
 
   console.log("\n");
+
+  return { inserted, failedChunks };
 }
 
 async function main() {
@@ -163,19 +169,22 @@ async function main() {
   const csvPath = path.join(__dirname, "../data/bgg_dataset.csv");
   const games = parseCSV(csvPath);
 
-  const allMechanics = Array.from(new Set(games.flatMap((g) =>
-    g["Mechanics"] ? g["Mechanics"].split(",").map((m) => m.trim()).filter(Boolean) : []
-  ))).sort();
-  const kindIdMap: Record<string, number> = Object.fromEntries(allMechanics.map((m, i) => [m, i + 1]));
+  // マスタを先に投入し、DB が採番した実 ID を受け取る。ローカルで i+1 を振ると
+  // SERIAL と一致する保証が無く、ジャンルタグが全件ずれる（レビューの M-8）。
+  const kindIdMap = await insertGameKind(games, translationMap);
+  const genreIdMap = await insertGameGenre(games);
 
-  const allDomains = Array.from(new Set(games.flatMap((g) =>
-    g["Domains"] ? g["Domains"].split(",").map((d) => d.trim()).filter(Boolean) : []
-  ))).sort();
-  const genreIdMap: Record<string, number> = Object.fromEntries(allDomains.map((d, i) => [d, i + 1]));
+  const { failedChunks } = await insertGames(games, descriptionMap, kindIdMap, genreIdMap);
 
-  await insertGames(games, descriptionMap, kindIdMap, genreIdMap);
+  if (failedChunks > 0) {
+    console.error(`\n${failedChunks} 個のチャンクが失敗しました。投入は不完全です。`);
+    process.exit(1);
+  }
 
   console.log("データ投入完了！");
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

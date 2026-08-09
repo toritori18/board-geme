@@ -110,10 +110,12 @@ export default function GameDetailPage({ game, rank }: Props) {
               </div>
             </div>
 
-            <div>
-              <h2 className="text-sm font-semibold text-gray-700 mb-2">ゲーム紹介</h2>
-              <p className="text-sm text-gray-600 leading-relaxed">{game.description}</p>
-            </div>
+            {game.description && (
+              <div>
+                <h2 className="text-sm font-semibold text-gray-700 mb-2">ゲーム紹介</h2>
+                <p className="text-sm text-gray-600 leading-relaxed">{game.description}</p>
+              </div>
+            )}
 
             <div>
               <h2 className="text-sm font-semibold text-gray-700 mb-2">タグ</h2>

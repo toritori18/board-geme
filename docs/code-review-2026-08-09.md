@@ -10,7 +10,7 @@
 |---|---:|---|---|
 | 🔴 重大 | 3 | RLS 未設定、認可の不在、招待メール API の野ざらし | **3件すべて対応済み** |
 | 🟠 高 | 5 | 1000件上限による表示欠落、全件 SSR、毎レンダー全件ソート | **5件すべて対応済み**（H-3 は計算自体の削除による実質解消） |
-| 🟡 中 | 9 | フィルタのロジック不具合、投入スクリプトの ID 採番 | 2件対応済み（M-1・M-2）。**M-3〜M-6 は未対応**、M-7〜M-9 は未着手 |
+| 🟡 中 | 9 | フィルタのロジック不具合、投入スクリプトの ID 採番 | **9件すべて対応済み** |
 | 🟢 低 | 10前後 | 重複コード、デッドコード、a11y、ドキュメント不整合 | 未着手 |
 
 各項目の実施日とコミットは、以下の該当箇所に記載している。
@@ -21,7 +21,7 @@
 
 ### C-1. RLS が一切設定されていない
 
-- スキーマ定義 `docs/sql/create_game_tables.sql` に `ENABLE ROW LEVEL SECURITY` / `CREATE POLICY` が**1行も無い**（リポジトリ全体を検索して0件）。なお `docs/sql/` は `.gitignore` で追跡対象外のローカル専用フォルダのため、リンクではなくパスのみを記載する
+- スキーマ定義 [create_game_tables.sql](sql/create_game_tables.sql) に `ENABLE ROW LEVEL SECURITY` / `CREATE POLICY` が**1行も無い**（リポジトリ全体を検索して0件）。なおレビュー時点では `docs/sql/` 全体が `.gitignore` で追跡対象外だったが、`532c41e` で DDL のみ追跡対象に変更した
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` は [supabase.ts](../src/utils/supabase.ts#L4) 経由でパスワード設定画面・パスワード再設定画面が import しており、**クライアントバンドルに同梱される＝公開情報**である
 - RLS が無効なら、この公開キーだけで `M_USER` の `password_hash` を `select` でき、`update` も通る
 
@@ -87,13 +87,13 @@
 |---|---|---|
 | M-1 | [ranking.tsx](../src/pages/ranking.tsx#L38) | **✅ 解消済み** — `playTime` が `"不明"` のとき `parseInt("不")` が `NaN` になる。NaN との比較は全て false のため、**play_time が null のゲームが全ての時間フィルタを通過する** |
 | M-2 | [ranking.tsx](../src/pages/ranking.tsx#L63) | **✅ 解消済み** — 超重量級の条件が `max < 120` のため、**120分ちょうどのゲームが「重量級(61〜120分)」と「超重量級(120分以上)」の両方**に出る |
-| M-3 | [game-mapper.ts](../src/utils/game-mapper.ts#L41) | `complexity_average` が null のとき `?? 0` により**一律「初心者向け」**に分類される。データ欠損と「本当に易しい」が区別できない |
-| M-4 | [ranking.tsx](../src/pages/ranking.tsx#L125) | UI は「評価数・スコアをもとに集計」と表示するが、実装は `rating` 降順で `votes` は同点時のタイブレークのみである。**評価数が極端に少ない高評価ゲームが上位を占める**（ベイズ平均のような重み付け補正が無い）。文言か実装のどちらかを合わせる必要がある |
-| M-5 | [reset-password.tsx](../src/pages/reset-password.tsx#L16) | `onAuthStateChange` を **unsubscribe していない**（[set-password.tsx](../src/pages/set-password.tsx#L43) はしている）。さらに `PASSWORD_RECOVERY` イベントのみ待つため、**リロードすると永久に「リセットリンクを確認中...」**のままになる |
-| M-6 | [forgot-password.ts](../src/pages/api/auth/forgot-password.ts#L33) | 未登録メールに 404 と「登録されていません」を返すため、**メールアドレスの列挙が可能**である。`login.ts` は正しく同一メッセージにしており方針が不統一 |
-| M-7 | [insert-to-db.ts](../scripts/insert-to-db.ts#L125) | `description_ja` と `short_description_ja` に**同じ値**を入れている → 詳細画面の「ゲーム紹介」が一覧カードの短文と同じになる |
-| M-8 | [insert-to-db.ts](../scripts/insert-to-db.ts#L166) | `kindIdMap` / `genreIdMap` を**ローカル採番（`i+1`）**で作っており、DB の SERIAL id と一致する保証が無い。しかも `insertGameGenre`（[65行目](../scripts/insert-to-db.ts#L65)）は `sort()` せず `main()` は `sort()` する。**順序がずれるとジャンルタグが全件誤表示**になる。なお両関数は `main()` から呼ばれておらずデッドコードである |
-| M-9 | [insert-to-db.ts](../scripts/insert-to-db.ts#L132) | チャンク失敗を `console.error` するだけで処理を継続し、**exit code 0 で終了**する。部分投入に気づけない |
+| M-3 | [game-mapper.ts](../src/utils/game-mapper.ts#L41) | **✅ 解消済み** — `complexity_average` が null のとき `?? 0` により**一律「初心者向け」**に分類される。データ欠損と「本当に易しい」が区別できない |
+| M-4 | [ranking.tsx](../src/pages/ranking.tsx#L125) | **✅ 解消済み** — UI は「評価数・スコアをもとに集計」と表示するが、実装は `rating` 降順で `votes` は同点時のタイブレークのみである。**評価数が極端に少ない高評価ゲームが上位を占める**（ベイズ平均のような重み付け補正が無い）。文言か実装のどちらかを合わせる必要がある |
+| M-5 | [reset-password.tsx](../src/pages/reset-password.tsx#L16) | **✅ 解消済み** — `onAuthStateChange` を **unsubscribe していない**（[set-password.tsx](../src/pages/set-password.tsx#L43) はしている）。さらに `PASSWORD_RECOVERY` イベントのみ待つため、**リロードすると永久に「リセットリンクを確認中...」**のままになる |
+| M-6 | [forgot-password.ts](../src/pages/api/auth/forgot-password.ts#L33) | **✅ 解消済み** — 未登録メールに 404 と「登録されていません」を返すため、**メールアドレスの列挙が可能**である。`login.ts` は正しく同一メッセージにしており方針が不統一 |
+| M-7 | [insert-to-db.ts](../scripts/insert-to-db.ts#L125) | **✅ 解消済み** — `description_ja` と `short_description_ja` に**同じ値**を入れている → 詳細画面の「ゲーム紹介」が一覧カードの短文と同じになる |
+| M-8 | [insert-to-db.ts](../scripts/insert-to-db.ts#L166) | **✅ 解消済み** — `kindIdMap` / `genreIdMap` を**ローカル採番（`i+1`）**で作っており、DB の SERIAL id と一致する保証が無い。しかも `insertGameGenre`（[65行目](../scripts/insert-to-db.ts#L65)）は `sort()` せず `main()` は `sort()` する。**順序がずれるとジャンルタグが全件誤表示**になる。なお両関数は `main()` から呼ばれておらずデッドコードである |
+| M-9 | [insert-to-db.ts](../scripts/insert-to-db.ts#L132) | **✅ 解消済み** — チャンク失敗を `console.error` するだけで処理を継続し、**exit code 0 で終了**する。部分投入に気づけない |
 
 ### M-1・M-2 の対応状況（2026-08-09）
 
@@ -127,6 +127,108 @@ service role で `count=exact` を用いて件数を実測した結果、以下�
 > なお、この実測の過程で `gte.100&lte.130` の範囲クエリが**ちょうど1000件で頭打ち**になることを確認した。H-1 が指摘した PostgREST の1000行上限が実データで再現した形である（アプリ本体はフェーズ2で `range()` へ移行済みのため影響しない）。
 
 > **据え置き** — フェーズ3の設計方針が示す根治（`Game` 型を `playTime: string` から `playTimeMinutes: number \| null` へ変更し、表示用文字列をレンダリング時に組み立てる）は**未実施**である。整形済み文字列を後段で再パースするアンチパターンを型で封じる予防的リファクタリングとして価値は残っているが、実害のあるバグは上記①②で解消したため今回は見送った。
+
+### M-3・M-4・M-5 の対応状況（2026-08-09）
+
+3件とも `fix/filter-and-mapping-bugs` ブランチで対応した。
+
+| # | 対応内容 |
+|---|---|
+| M-3 | [mapRow()](../src/utils/game-mapper.ts#L83) の `Number(row.complexity_average ?? 0)` をやめ、`null` と `0` を「不明」として扱うようにした。あわせて絞り込み側の初心者向け条件を `.or("...lt.2.0,...is.null")` から `.gt("complexity_average", 0).lt("complexity_average", 2.0)` に変更し、表示とフィルタの意味論を揃えた |
+| M-4 | ランキングタブの並びを `rating_average` 降順から **`bgg_rank` 昇順**へ変更した（[ranking.tsx](../src/pages/ranking.tsx#L100)）。あわせて見出し下の文言を「評価数・スコアをもとに集計」から「BoardGameGeek 公表のランキング順」に改めた |
+| M-5 | [reset-password.tsx](../src/pages/reset-password.tsx#L16) の `useEffect` を書き換え、`INITIAL_SESSION` と `getSession()` の2経路を追加した。`ready` の真偽値を `status`（`checking` / `ready` / `invalid`）に置き換え、セッションを確立できない場合は案内を表示する。`subscription.unsubscribe()` も追加した |
+
+#### M-3 の実データによる裏付け（2026-08-09 時点・`T_GAME` 全 20,327 件）
+
+| 条件 | 件数 |
+|---|---:|
+| `complexity_average IS NULL` | **0** |
+| `complexity_average = 0` | **426** |
+| 初心者向け（修正前 `lt 2.0` または `is null`） | 10,209 |
+| **初心者向け（修正後 `0 < c < 2.0`）** | **9,783** |
+| 中級者向け（`2.0 <= c <= 3.5`・変更なし） | 9,078 |
+| 上級者向け（`c > 3.5`・変更なし） | 1,040 |
+
+- **M-1 と同じ構図である** — レビューは「`null` のとき `?? 0`」と書いたが NULL は1件も存在せず、欠損の実体は `0` の426件だった。`?? 0` は一度も発火していない一方、指摘された実害（欠損が「初心者向け」に混ざる）はそのまま起きていた
+- **`0` はスケール外＝欠損** — 0 より大きい最小値は `1`、最大値は `5` で値域は 1〜5。`0` はこの範囲の外にある
+- **区分の網羅性** — 9,783 + 9,078 + 1,040 = 19,901 は全件 20,327 から `0` の426件を引いた数と一致する。重複もギャップも無い
+- 難易度フィルタ未選択時は、`0` の426件も従来どおり一覧に出る（下限条件が無条件に効いていないこと）
+
+#### M-4 の実測
+
+`rating_average` 降順では、上位が評価数30〜80件のマイナーゲームで占拠されていた。
+
+| 順位 | 修正前（`rating_average` 降順） | 修正後（`bgg_rank` 昇順） |
+|---:|---|---|
+| 1 | Erune（★9.58 / 31票） | Gloomhaven（★8.79 / 42,055票） |
+| 2 | DEFCON 1（★9.54 / 57票） | Pandemic Legacy: Season 1（★8.61 / 41,643票） |
+| 3 | Star Trek: Alliance（★9.46 / 54票） | Brass: Birmingham（★8.66 / 19,217票） |
+
+`T_GAME.bgg_rank` は `data/bgg_dataset.csv` の `BGG Rank` 列に由来し、20,327件すべてに値が入っている（NULL 0件）。投入元のスクリプトは特定できていない（詳細は[投入経路の調査結果](#投入経路の調査結果2026-08-09)を参照）。
+
+文言を「BoardGameGeek 公表のランキング順」としたのは、「集計」だと自前で算出しているように読めるためである。BGG が順位をどの式で算出しているかは一次資料で未確認のため、[.claude/factcheck.md](../.claude/factcheck.md) に従い、確認できている事実のみを記載している。
+
+#### M-5 の原因（`@supabase/auth-js` 2.106.2 のソースで確認）
+
+- `_initialize()` は URL に認証情報がある場合のみセッションを復元し、その直後に `PASSWORD_RECOVERY` を通知する。implicit フロー（`flowType` の既定値）では処理後に `window.location.hash = ''` で URL を掃除するため、**リロード後はこの通知が発生しない**。セッション自体は localStorage に残っているが、修正前のコードはそれを読みに行っていなかった
+- `onAuthStateChange` は購読登録時に `initializePromise` を待ってから、その購読者へ `INITIAL_SESSION`（セッションが無ければ `null`）を必ず通知する
+- `getSession()` も冒頭で `initializePromise` を await するため、URL のトークン処理が完了してから結果が返る（レース無し）。したがって `getSession()` が空を返せば「リンクが無効・期限切れ」と断定してよい
+
+> **unsubscribe（M-5 の指摘後半）について** — この画面への入口はメールのリンク（＝必ずフルロード）のみで、アプリ内から[パスワード再設定画面](../src/pages/reset-password.tsx)へのリンクは無い。`supabase` は [supabase.ts](../src/utils/supabase.ts#L6) のモジュールトップレベルのシングルトンで、フルロードのたびに購読リストが空に戻る。そのため購読が積み上がる経路が実質存在せず、**単独では観測可能な実害は無い**。上記の `useEffect` を書き換えるついでに [set-password.tsx](../src/pages/set-password.tsx#L43) と実装を揃えた、という位置づけである。なお React 18 は unmount 後の `setState` に警告を出さないため（`react-dom` 18.3.1 の development ビルドに該当の警告文字列が存在しないことを確認）、コンソールでの検出もできない
+
+#### 本対応で生じた残課題
+
+| 課題 | 内容 |
+|---|---|
+| `GameSort` の `"rating"` 分岐 | M-4 で `sort` に `"rank"` しか渡らなくなったため、[game-mapper.ts](../src/utils/game-mapper.ts#L186) の `"rating"` 側がデッドコードになった。挙動を戻せる状態を保つため今回は残している。削除はフェーズ4のデッドコード整理で扱う |
+| `Game.difficulty` が未描画 | `mapRow()` が算出する難易度ラベルは、[GameCard.tsx](../src/components/GameCard.tsx) にもゲーム詳細ページにも表示されていない。そのため M-3 の修正で利用者から見える変化は**絞り込み結果の件数のみ**で、「不明」の文字列が画面に出ることは無い。難易度を表示するかどうかは別課題 |
+
+### M-6・M-7・M-8・M-9 の対応状況（2026-08-09）
+
+4件とも `fix/filter-and-mapping-bugs` ブランチで対応した。性質が2つに分かれる。
+
+- **M-6** — 認証 API の情報漏洩。**現に本番で踏める**問題
+- **M-7・M-8・M-9** — 投入スクリプトの不具合。**現データは別経路で入っているため、いま壊れているものは無い**。次に `npm run seed:insert` を実行した瞬間に顕在化する
+
+| # | 対応内容 |
+|---|---|
+| M-6 | [forgot-password.ts](../src/pages/api/auth/forgot-password.ts#L33) で、未登録メールにも**成功時と完全に同一のレスポンス**（200 / `success: true` / 同一メッセージ）を返すようにした。存在確認クエリはメール送信の要否判断のために残しており、メールが実際に送られるのは登録済みの場合のみ |
+| M-7 | [insert-to-db.ts](../scripts/insert-to-db.ts#L125) と [generate-sql.ts](../scripts/generate-sql.ts#L155) の両方で `description_ja` への短文の複製をやめ、`NULL` を入れるようにした。あわせて [mapRow()](../src/utils/game-mapper.ts#L91) に `description_ja \|\| short_description_ja` のフォールバックを入れ、[games/[id].tsx](../src/pages/games/[id].tsx#L113) は表示する文が無ければ「ゲーム紹介」セクションごと出さないようにした |
+| M-8 | [main()](../scripts/insert-to-db.ts#L169) のローカル採番（`i + 1`）を廃し、デッドコードだった `insertGameKind` / `insertGameGenre` を呼んで **DB が採番した実 ID** を受け取るようにした |
+| M-9 | `insertGames()` が `failedChunks` を返すようにし、失敗があれば `main()` が `process.exit(1)` する。`main().catch(console.error)` も exit code 1 を立てる形に変更した |
+
+#### 投入経路の調査結果（2026-08-09）
+
+```
+data/bgg_dataset.csv (20,327件)
+    ├─ seed:submit / seed:collect（Anthropic Batch API）
+    │     → data/batch-results.json (10,343件) / mechanics-translations.json
+    ↓
+    ├─ generate-sql.ts   → INSERT 文を出力 → Supabase SQL Editor に貼る  ← 現データはこちら
+    └─ insert-to-db.ts   → Supabase に直接 upsert                        ← M-7〜M-9 の対象
+```
+
+- **M-8 は現データの不整合ではなく潜在バグである** — `docs/sql/insert_master_data.sql` は id を明示して INSERT し `setval` でシーケンスを合わせているため、番号がずれようがない。実際 `M_GAME_GENRE.id` は名前ソート順の 1〜8 で、Gloomhaven（`id=174430`）の `game_domain_id = [6,7]` は CSV の `Strategy Games, Thematic Games` と一致する
+- **生成元スクリプトの版はリポジトリに残っていない** — 現物3ファイル（いずれも `Generated: 2026-05-31T04:55:34.365Z`）はマスタ／トランザクションに分割されているが、`generate-sql.ts` も `generate-game-sql.ts` も出力は `insert_game_data.sql` 1本で、ヘッダー文言も一致しない。`npm run seed:generate-sql` を叩いても現物は再現しない
+- **再生成した SQL を流しても既存行は更新されない** — T_GAME 側は全41チャンクが `ON CONFLICT (id) DO NOTHING` である
+
+#### 長文説明というデータは存在しない（M-7 の前提）
+
+- `data/batch-results.json` のフィールドは `name_ja` と `short_description_ja`（プロンプトで「30〜50文字」指定）の**2つだけ**で、長文説明は一度も生成されていない
+- `T_GAME.description_ja` は **9,985件が空文字**（全 20,327 件の49%）、NULL は0件、残り 10,342 件は `short_description_ja` と完全に同一
+- つまり詳細ページの「ゲーム紹介」は、**半数で空欄、残り半数で一覧カードと同じ文**が出ていた。本対応で空欄のセクションは出なくなる
+
+> **既存データへの適用が必要** — 既存の 10,342 件には複製が残ったままである。`docs/sql/update_description_ja.sql`（`UPDATE public."T_GAME" SET description_ja = NULL;`）を用意した。**Supabase の SQL Editor での実行は未実施**。失われる情報は無く（中身は `short_description_ja` と同一）、`mapRow()` のフォールバックにより実行前後で表示は変わらない。
+
+> **`insert-to-db.ts` の実行に DELETE は不要** — マスタへの upsert は `rows` に id を含めず `game_kind_name` / `game_genre_name`（`UNIQUE`）で照合するため、既存 id を維持したまま `*_name_ja` を更新する。`T_GAME` も `id`（CSV の BGG ID）で衝突して UPDATE される。逆に**マスタを DELETE してはならない** — シーケンスは巻き戻らず（`setval(..., 8)` 済み）再 INSERT で 9 以降が振られる。`game_domain_id` は `INTEGER[]` で外部キー制約が無いため DB はエラーを出さず、[buildGenreMap()](../src/utils/game-mapper.ts#L34) の `genreMap.get(id) ?? ""` が空文字を返して**全ゲームのジャンルタグが黙って消える**。
+
+#### 本対応で残した課題
+
+| 課題 | 内容 |
+|---|---|
+| 長文説明の生成 | 用意するには [submit-batch.ts](../scripts/submit-batch.ts#L22) のプロンプトに `description_ja` を追加し、`max_tokens: 200` を引き上げ、`DescriptionResult` 型を3フィールドにしたうえで Batch API を再実行（20,327件・費用と数時間〜24時間）し、再投入する必要がある |
+| タイミング攻撃（M-6 の残り火） | 登録済みの場合だけ `resetPasswordForEmail`（外部通信）を通るため、応答時間の差から存在を推測する余地は残る |
+| `main().catch(console.error)` の波及 | 同じ形が [submit-batch.ts](../scripts/submit-batch.ts#L97) と [collect-batch.ts](../scripts/collect-batch.ts#L146) にもある。レビューの指摘は `insert-to-db.ts` のみだったため対象を広げていない |
 
 ---
 
@@ -178,22 +280,15 @@ anon キー（`NEXT_PUBLIC_SUPABASE_ANON_KEY`）で4テーブルに `select` を
 
 | フェーズ | 計画ブランチ | 内容 | 状態 |
 |---|---|---|---|
-| 1 | `fix/security-rls` | RLS の DDL 追記（C-1）、招待メール API の 403 化（C-3）、メールアドレス列挙対策（M-6） | **一部**（C-1・C-3 は `cb9c21e` ほかで完了。**M-6 は未対応**） |
-| 2 | `fix/game-fetch-pagination` | `range()` によるサーバー側ページングと DB 側フィルタ（H-1・H-2）、`error` の握り潰し解消（H-4）、`useMemo` 化（H-3）、ランキング順序と UI 文言の一致（M-4） | **一部**（H-1・H-2・H-4 は `ed4e3e4` で完了。H-3 は計算自体の削除により実質解消。**M-4 は未対応**） |
+| 1 | `fix/security-rls` | RLS の DDL 追記（C-1）、招待メール API の 403 化（C-3）、メールアドレス列挙対策（M-6） | **完了**（C-1・C-3 は `cb9c21e` ほか。M-6 は `fix/filter-and-mapping-bugs` で対応） |
+| 2 | `fix/game-fetch-pagination` | `range()` によるサーバー側ページングと DB 側フィルタ（H-1・H-2）、`error` の握り潰し解消（H-4）、`useMemo` 化（H-3）、ランキング順序と UI 文言の一致（M-4） | **完了**（H-1・H-2・H-4 は `ed4e3e4`。H-3 は計算自体の削除により実質解消。M-4 は `fix/filter-and-mapping-bugs` で対応） |
 | — | （計画外） | httpOnly Cookie による自前セッションと画面の認可（C-2） | 完了（`f71234b`） |
-| 3 | `fix/filter-and-mapping-bugs` | complexity が null の場合の扱い（M-3）、0行更新の検査（H-5）と unsubscribe（M-5） | **一部**（H-5 は `cb9c21e` で完了。**M-3・M-5 は未対応**）。M-1・M-2 はフェーズ2で解消済みのため対象外 |
+| 3 | `fix/filter-and-mapping-bugs` | complexity が null の場合の扱い（M-3）、0行更新の検査（H-5）と unsubscribe（M-5） | **完了**（H-5 は `cb9c21e`。M-3・M-5 は `fix/filter-and-mapping-bugs` で対応。詳細は[上記の対応状況](#m-3m-4m-5-の対応状況2026-08-09)を参照）。M-1・M-2 はフェーズ2で解消済みのため対象外 |
 | 3.5 | `fix/play-time-filter-consistency` | フェーズ2で残った時間フィルタの表示・文言の不整合（M-1・M-2 の派生①②）。詳細は[上記の対応状況](#m-1m-2-の対応状況2026-08-09)を参照 | 完了 |
-| 4 | `refactor/scripts-cleanup` | 投入スクリプトの ID 採番修正（M-7・M-8・M-9）、`parseCSV` の共通化、デッドコード削除、`StarRating` の切り出し | 未着手 |
+| 4 | `refactor/scripts-cleanup` | 投入スクリプトの ID 採番修正（M-7・M-8・M-9）、`parseCSV` の共通化、デッドコード削除、`StarRating` の切り出し | **一部**（M-7・M-8・M-9 は `fix/filter-and-mapping-bugs` で完了。**`parseCSV` の共通化・デッドコード削除・`StarRating` の切り出しは未着手**） |
 | 5 | — | `.env.example` とドキュメントの整合、`next/head`、アクセシビリティ、README の同期 | 未着手 |
 
-#### 計画に含まれていながら未対応の項目
-
-フェーズ1・2の実装時に漏れた2件である。どちらも今後のフェーズで拾う必要がある。
-
-| ID | 箇所 | 内容 |
-|---|---|---|
-| M-6 | [forgot-password.ts:33](../src/pages/api/auth/forgot-password.ts#L33) | 未登録メールに 404 と「このメールアドレスは登録されていません。」を返しており、**メールアドレスの列挙が可能**な状態が続いている。フェーズ1の計画に含まれていたが実装されなかった |
-| M-4 | [ranking.tsx:433](../src/pages/ranking.tsx#L433) | UI は「評価数・スコアをもとに集計」と表示するが、実装は `rating_average` 降順で `users_rated` は同点時のタイブレークのみ（[game-mapper.ts:189](../src/utils/game-mapper.ts#L189)）。文言と実装の不一致が残っている |
+> フェーズ1の M-6 とフェーズ2の M-4 は当初の実装時に漏れていたが、いずれも `fix/filter-and-mapping-bugs` で回収した。🟡中はこれで9件すべて対応済みとなり、残るのは 🟢低とフェーズ4・5 の保守性項目のみである。
 
 ### フェーズ2の設計方針
 
@@ -215,9 +310,22 @@ M-1 の根本原因は、`"3〜5人"` や `"60分"` のような**整形済み�
 2. `npm run dev` で手動確認
    - **フェーズ1** — 招待メール API に POST すると 403 が返る。パスワード再設定フォームに未登録アドレスを入れても登録済みと同じメッセージが返る。ランキング画面・ゲーム詳細画面が従来どおり表示される（RLS 有効化で service role 経由の取得が壊れていないこと）
    - **フェーズ2** — ランキングの総件数が 1000 件を超えて表示される。**修正前に 1000 件で頭打ちになることを先に確認**しておくと差分がはっきりする。最終ページまでページ送りできる。検索文字の入力時に体感の引っかかりが無い
-   - **フェーズ3** — complexity_average が null のゲームが難易度フィルタに出ない。`M_USER` に行が無いユーザーでパスワード再設定すると、成功メッセージではなくエラーになる
+   - **フェーズ3** — 難易度「初心者向け」の総件数が 10,209件から **9,783件**に減る（`complexity_average = 0` の426件が外れる）。難易度フィルタ未選択時はその426件も従来どおり出る。ランキングタブの1位が Gloomhaven になり、見出し下が「BoardGameGeek 公表のランキング順」になっている。**パスワード再設定画面をリロードしてもフォームが表示され続ける**（修正前は「リセットリンクを確認中...」で止まる）。メールのリンクを経由せず[パスワード再設定画面](../src/pages/reset-password.tsx)に直接アクセスすると、「リンクが無効か期限切れ」の案内と再送導線が出る。`M_USER` に行が無いユーザーでパスワード再設定すると、成功メッセージではなくエラーになる
    - **フェーズ3.5** — 「超重量級(120分超)」で絞ると所要時間が**すべて120分より長い**（実データ上の最小は125分）。120分のゲームは「重量級」にのみ出る。「軽量級(～30分)」で絞ると**「不明」表示のカードが1件も出ず**、総件数が 8,628件から 8,074件に減る。一方、時間フィルタ未選択時には「不明」のゲーム554件が従来どおり一覧に出る（下限条件が無条件に効いていないこと）
-   - **フェーズ4** — `npm run seed:insert` をテスト用の小さい CSV で実行し、`T_GAME.game_domain_id` が `M_GAME_GENRE.id` と実際に一致することを SQL で突き合わせる
+   - **フェーズ4** — 詳細ページで、説明文があるゲーム（例: Gloomhaven `id=174430`）は「ゲーム紹介」が従来どおり出て、説明文が無いゲーム（9,985件のいずれか）は**見出しごと消えている**。`docs/sql/update_description_ja.sql` を実行後も表示が変わらないこと（`UPDATE 20327` が返り、`description_ja is not null` が0件になる）
+
+     投入スクリプトの検証は**本番データに対しては行わない**。テスト用の小さい CSV と空のテーブル（または別プロジェクト）を用意し、`npm run seed:insert` の実行後に次を確認する。
+
+     ```sql
+     -- game_domain_id の各要素が M_GAME_GENRE.id に実在すること（0 になること）
+     select count(*) from "T_GAME" g
+     where exists (
+       select 1 from unnest(g.game_domain_id) as did
+       where did not in (select id from "M_GAME_GENRE")
+     );
+     ```
+
+     あわせて、`M_GAME_GENRE` に行が入ること（修正前は投入されない）、`description_ja` が NULL で入ること、意図的にチャンクを失敗させると exit code が **1** になること（修正前は 0）を確認する。**本番 DB に対して `seed:insert` を試してはならない** — マスタの扱いを誤るとジャンルタグが全件ずれるため
 3. RLS は Supabase ダッシュボードで各テーブルの有効状態を確認し、あわせて **anon キーで `M_USER` を select して 0件またはエラーになる**ことを確認する
    - anon キーからの到達不可は**実測済み**（4テーブルとも HTTP 401）。ただしそれは GRANT による拒否であり RLS の有効化を意味しないため、`pg_tables.rowsecurity` が4テーブルとも `true` であることの確認は別途必要である。詳細は[C-1 適用後の実測](#c-1-適用後の実測2026-08-09)を参照
 

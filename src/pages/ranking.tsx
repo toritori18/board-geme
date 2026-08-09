@@ -97,7 +97,9 @@ export const getServerSideProps: GetServerSideProps<Props> = async ({ req, query
     genre,
     query: tab === "search" ? q : undefined,
   };
-  const sort: GameSort = tab === "search" ? "rank" : "rating";
+  // ランキング・検索とも BoardGameGeek 公表の順位（bgg_rank 昇順）で並べる。
+  // rating_average 降順では評価数30件台のゲームが上位を占め、「人気ランキング」として成立しない。
+  const sort: GameSort = "rank";
   const { games, total } = await fetchGamesPage({ page, pageSize: PAGE_SIZE, filters, sort });
 
   return {
@@ -430,7 +432,7 @@ export default function RankingPage({
           <div>
             <div className="mb-6">
               <h1 className="text-2xl font-bold text-gray-900">ボードゲーム人気ランキング</h1>
-              <p className="text-sm text-gray-500 mt-1">評価数・スコアをもとに集計</p>
+              <p className="text-sm text-gray-500 mt-1">BoardGameGeek 公表のランキング順</p>
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">

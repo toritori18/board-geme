@@ -30,11 +30,13 @@ export default async function handler(
     .eq("email", email)
     .single();
 
+  // 登録の有無をレスポンスから判別できると、任意のアドレスが登録済みかを
+  // 外部から総当たりで確認できてしまう（login.ts と同じ方針）。
+  // 未登録の場合はメールを送らないが、返す内容は成功時と完全に同一にする。
+  const successMessage = "パスワードリセットのメールを送信しました。メールをご確認ください。";
+
   if (!existing) {
-    return res.status(404).json({
-      success: false,
-      message: "このメールアドレスは登録されていません。",
-    });
+    return res.status(200).json({ success: true, message: successMessage });
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -50,8 +52,5 @@ export default async function handler(
     });
   }
 
-  return res.status(200).json({
-    success: true,
-    message: "パスワードリセットのメールを送信しました。メールをご確認ください。",
-  });
+  return res.status(200).json({ success: true, message: successMessage });
 }
