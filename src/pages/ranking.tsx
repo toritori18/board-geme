@@ -3,7 +3,10 @@ import { useRouter } from "next/router";
 import type { GetServerSideProps } from "next";
 import GameCard from "@/components/GameCard";
 import type { Game } from "@/types/game";
-import { fetchGames } from "@/utils/game-mapper";
+import { fetchGamesPage, fetchGenres } from "@/utils/game-mapper";
+import type { GameFilters, GameSort } from "@/utils/game-mapper";
+import { getSessionUser } from "@/utils/session";
+import { logout } from "@/utils/logout";
 
 type Tab = "search" | "ranking";
 
@@ -28,192 +31,242 @@ const DIFFICULTY_OPTIONS = [
   { value: "上級者向け", label: "上級者向け" },
 ];
 
-function parsePlayers(players: string): { min: number; max: number } {
-  const parts = players.replace("人", "").split("〜");
-  if (parts.length === 2) return { min: parseInt(parts[0]), max: parseInt(parts[1]) };
-  const v = parseInt(parts[0]);
-  return { min: v, max: v };
-}
-
-function parsePlayTime(playTime: string): { min: number; max: number } {
-  const parts = playTime.replace("分", "").split("〜");
-  if (parts.length === 2) return { min: parseInt(parts[0]), max: parseInt(parts[1]) };
-  const v = parseInt(parts[0]);
-  return { min: v, max: v };
-}
-
-function applyFilters(
-  games: Game[],
-  players: string,
-  time: string,
-  difficulty: string,
-  genre: string
-): Game[] {
-  return games.filter((game) => {
-    if (players) {
-      const { min, max } = parsePlayers(game.players);
-      const count = parseInt(players);
-      if (count === 5) { if (max < 5) return false; }
-      else { if (min > count || max < count) return false; }
-    }
-    if (time) {
-      const { min, max } = parsePlayTime(game.playTime);
-      if (time === "30" && max > 30) return false;
-      if (time === "60" && (max < 31 || min > 60)) return false;
-      if (time === "120" && (max < 61 || min > 120)) return false;
-      if (time === "121" && max < 120) return false;
-    }
-    if (difficulty && game.difficulty !== difficulty) return false;
-    if (genre && !game.tags.includes(genre)) return false;
-    return true;
-  });
-}
-
-function applySearchFilters(
-  games: Game[],
-  q: string,
-  players: string,
-  time: string,
-  difficulty: string,
-  genre: string
-): Game[] {
-  const base = applyFilters(games, players, time, difficulty, genre);
-  if (!q.trim()) return base;
-  const lq = q.trim().toLowerCase();
-  return base.filter(
-    (game) =>
-      game.name.includes(q.trim()) ||
-      game.nameEn.toLowerCase().includes(lq) ||
-      game.shortDescription.includes(q.trim()) ||
-      game.tags.some((t) => t.includes(q.trim()))
-  );
-}
-
 const PAGE_SIZE = 20;
-const STORAGE_KEY = "rankingFilters";
-
-type SavedFilters = {
-  query: string;
-  playerFilter: string;
-  playTimeFilter: string;
-  difficultyFilter: string;
-  genreFilter: string;
-  rankPlayerFilter: string;
-  rankPlayTimeFilter: string;
-  rankDifficultyFilter: string;
-  rankGenreFilter: string;
-};
 
 type Props = {
-  allGames: Game[];
-  initialTab: Tab;
+  tab: Tab;
+  games: Game[];
+  total: number;
+  page: number;
+  query: string;
+  players: string;
+  playTime: string;
+  difficulty: string;
+  genre: string;
+  genres: string[];
+  // 検索タブで「検索」ボタンが押された結果を表示すべきかどうか
+  searched: boolean;
 };
 
-export const getServerSideProps: GetServerSideProps<Props> = async ({ query }) => {
-  const allGames = await fetchGames();
+function getStringParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
+}
+
+export const getServerSideProps: GetServerSideProps<Props> = async ({ req, query }) => {
+  if (!getSessionUser(req)) {
+    return { redirect: { destination: "/", permanent: false } };
+  }
+
+  const tab: Tab = query.tab === "ranking" ? "ranking" : "search";
+  const rawPage = Number(getStringParam(query.page));
+  const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1;
+  const players = getStringParam(query.players);
+  const playTime = getStringParam(query.time);
+  const difficulty = getStringParam(query.difficulty);
+  const genre = getStringParam(query.genre);
+  const q = getStringParam(query.q);
+  const searched = tab === "search" && getStringParam(query.searched) === "1";
+
+  const genres = await fetchGenres();
+
+  // 検索タブは「検索ボタンを押して初めて結果を出す」挙動のため、
+  // 未検索の状態ではゲーム一覧を取得しない
+  if (tab === "search" && !searched) {
+    return {
+      props: {
+        tab,
+        games: [],
+        total: 0,
+        page,
+        query: q,
+        players,
+        playTime,
+        difficulty,
+        genre,
+        genres,
+        searched,
+      },
+    };
+  }
+
+  const filters: GameFilters = {
+    players,
+    playTime,
+    difficulty,
+    genre,
+    query: tab === "search" ? q : undefined,
+  };
+  const sort: GameSort = tab === "search" ? "rank" : "rating";
+  const { games, total } = await fetchGamesPage({ page, pageSize: PAGE_SIZE, filters, sort });
+
   return {
-    props: {
-      allGames,
-      initialTab: query.tab === "ranking" ? "ranking" : "search",
-    },
+    props: { tab, games, total, page, query: q, players, playTime, difficulty, genre, genres, searched },
   };
 };
 
-export default function RankingPage({ allGames, initialTab }: Props) {
+// 空文字のキーはURLに含めない（見た目をきれいに保つため）
+function buildQuery(params: Record<string, string>): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (value) result[key] = value;
+  }
+  return result;
+}
+
+export default function RankingPage({
+  tab,
+  games,
+  total,
+  page,
+  query,
+  players,
+  playTime,
+  difficulty,
+  genre,
+  genres,
+  searched,
+}: Props) {
   const router = useRouter();
 
-  const sorted = [...allGames].sort((a, b) => b.rating - a.rating || b.votes - a.votes);
-  const allGenres = Array.from(new Set(allGames.flatMap((g) => g.tags)));
+  // 検索タブは「検索」ボタン押下時にのみURLへ反映するため、入力中はローカルstateで持つ
+  const [localQuery, setLocalQuery] = useState(query);
+  const [localPlayers, setLocalPlayers] = useState(players);
+  const [localPlayTime, setLocalPlayTime] = useState(playTime);
+  const [localDifficulty, setLocalDifficulty] = useState(difficulty);
+  const [localGenre, setLocalGenre] = useState(genre);
 
-  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
-
-  // 検索フィルター
-  const [query, setQuery] = useState("");
-  const [playerFilter, setPlayerFilter] = useState("");
-  const [playTimeFilter, setPlayTimeFilter] = useState("");
-  const [difficultyFilter, setDifficultyFilter] = useState("");
-  const [genreFilter, setGenreFilter] = useState("");
-  const [results, setResults] = useState<Game[] | null>(null);
-
-  // ランキングフィルター
-  const [rankPlayerFilter, setRankPlayerFilter] = useState("");
-  const [rankPlayTimeFilter, setRankPlayTimeFilter] = useState("");
-  const [rankDifficultyFilter, setRankDifficultyFilter] = useState("");
-  const [rankGenreFilter, setRankGenreFilter] = useState("");
-
-  // ページネーション
-  const [searchPage, setSearchPage] = useState(1);
-  const [rankPage, setRankPage] = useState(1);
-
-  // sessionStorageからフィルター状態を復元（詳細画面から戻ったとき用）
+  // ブラウザの戻る/進むでpropsが変わったとき（URLから状態が復元されたとき）に
+  // 検索フォームの入力欄も追従させる
   useEffect(() => {
-    try {
-      const saved = sessionStorage.getItem(STORAGE_KEY);
-      if (!saved) return;
-      const state: SavedFilters = JSON.parse(saved);
-      setQuery(state.query ?? "");
-      setPlayerFilter(state.playerFilter ?? "");
-      setPlayTimeFilter(state.playTimeFilter ?? "");
-      setDifficultyFilter(state.difficultyFilter ?? "");
-      setGenreFilter(state.genreFilter ?? "");
-      setRankPlayerFilter(state.rankPlayerFilter ?? "");
-      setRankPlayTimeFilter(state.rankPlayTimeFilter ?? "");
-      setRankDifficultyFilter(state.rankDifficultyFilter ?? "");
-      setRankGenreFilter(state.rankGenreFilter ?? "");
-    } catch {}
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    setLocalQuery(query);
+    setLocalPlayers(players);
+    setLocalPlayTime(playTime);
+    setLocalDifficulty(difficulty);
+    setLocalGenre(genre);
+  }, [query, players, playTime, difficulty, genre]);
 
-  // フィルター状態をsessionStorageに保存
-  useEffect(() => {
-    const state: SavedFilters = {
-      query, playerFilter, playTimeFilter, difficultyFilter, genreFilter,
-      rankPlayerFilter, rankPlayTimeFilter, rankDifficultyFilter, rankGenreFilter,
-    };
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [query, playerFilter, playTimeFilter, difficultyFilter, genreFilter,
-      rankPlayerFilter, rankPlayTimeFilter, rankDifficultyFilter, rankGenreFilter]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const isRankingFiltered = Boolean(players || playTime || difficulty || genre);
 
-  // タブのみURLに同期（共有・ブックマーク対応）
-  const handleTabChange = (tab: Tab) => {
-    setActiveTab(tab);
-    void router.replace({ pathname: "/ranking", query: { tab } }, undefined, { shallow: true });
+  // shallow: false（デフォルト）でgetServerSidePropsを再実行させ、DBから再取得する
+  const pushQuery = (next: Record<string, string>) => {
+    void router.push({ pathname: "/ranking", query: next });
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
+  };
+
+  const handleLogoClick = () => {
+    setLocalQuery("");
+    setLocalPlayers("");
+    setLocalPlayTime("");
+    setLocalDifficulty("");
+    setLocalGenre("");
+    pushQuery({ tab: "search" });
+  };
+
+  const handleTabChange = (nextTab: Tab) => {
+    pushQuery(
+      buildQuery({
+        tab: nextTab,
+        page: "1",
+        q: query,
+        players,
+        time: playTime,
+        difficulty,
+        genre,
+        searched: searched ? "1" : "",
+      })
+    );
   };
 
   const handleSearch = () => {
-    setResults(applySearchFilters(allGames, query, playerFilter, playTimeFilter, difficultyFilter, genreFilter));
-    setSearchPage(1);
+    pushQuery(
+      buildQuery({
+        tab: "search",
+        page: "1",
+        searched: "1",
+        q: localQuery.trim(),
+        players: localPlayers,
+        time: localPlayTime,
+        difficulty: localDifficulty,
+        genre: localGenre,
+      })
+    );
   };
 
-  const handleReset = () => {
-    setQuery("");
-    setPlayerFilter("");
-    setPlayTimeFilter("");
-    setDifficultyFilter("");
-    setGenreFilter("");
-    setResults(null);
-    setSearchPage(1);
+  const handleSearchReset = () => {
+    setLocalQuery("");
+    setLocalPlayers("");
+    setLocalPlayTime("");
+    setLocalDifficulty("");
+    setLocalGenre("");
+    pushQuery({ tab: "search" });
   };
 
-  const filteredRanking = applyFilters(sorted, rankPlayerFilter, rankPlayTimeFilter, rankDifficultyFilter, rankGenreFilter);
-  const isRankingFiltered = rankPlayerFilter || rankPlayTimeFilter || rankDifficultyFilter || rankGenreFilter;
+  const handleSearchPageChange = (newPage: number) => {
+    pushQuery(
+      buildQuery({
+        tab: "search",
+        page: String(newPage),
+        searched: "1",
+        q: query,
+        players,
+        time: playTime,
+        difficulty,
+        genre,
+      })
+    );
+  };
 
-  const pagedResults = results ? results.slice((searchPage - 1) * PAGE_SIZE, searchPage * PAGE_SIZE) : [];
-  const pagedRanking = filteredRanking.slice((rankPage - 1) * PAGE_SIZE, rankPage * PAGE_SIZE);
+  const handleRankFilterChange = (
+    patch: Partial<{ players: string; time: string; difficulty: string; genre: string }>
+  ) => {
+    pushQuery(
+      buildQuery({
+        tab: "ranking",
+        page: "1",
+        players: patch.players ?? players,
+        time: patch.time ?? playTime,
+        difficulty: patch.difficulty ?? difficulty,
+        genre: patch.genre ?? genre,
+      })
+    );
+  };
+
+  const handleRankReset = () => {
+    pushQuery({ tab: "ranking" });
+  };
+
+  const handleRankPageChange = (newPage: number) => {
+    pushQuery(
+      buildQuery({
+        tab: "ranking",
+        page: String(newPage),
+        players,
+        time: playTime,
+        difficulty,
+        genre,
+      })
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50">
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
           <button
-            onClick={() => { handleTabChange("search"); handleReset(); }}
+            onClick={handleLogoClick}
             className="flex items-center gap-2 hover:opacity-80 transition"
           >
             <img src="/img/boardgemeTop.png" alt="ボードゲームランキング" className="w-8 h-8 rounded-lg object-cover" />
             <span className="font-bold text-gray-900 text-sm">ボードゲームランキング</span>
           </button>
           <button
-            onClick={() => router.push("/")}
+            onClick={() => void handleLogout()}
             className="text-sm text-gray-500 hover:text-indigo-600 transition"
           >
             ログアウト
@@ -223,14 +276,14 @@ export default function RankingPage({ allGames, initialTab }: Props) {
         {/* タブ */}
         <div className="max-w-2xl mx-auto px-4">
           <div className="flex border-b border-gray-200">
-            {(["search", "ranking"] as Tab[]).map((tab) => {
-              const label = tab === "search" ? "検索" : "ランキング";
+            {(["search", "ranking"] as Tab[]).map((t) => {
+              const label = t === "search" ? "検索" : "ランキング";
               return (
                 <button
-                  key={tab}
-                  onClick={() => handleTabChange(tab)}
+                  key={t}
+                  onClick={() => handleTabChange(t)}
                   className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === tab
+                    tab === t
                       ? "border-indigo-600 text-indigo-600"
                       : "border-transparent text-gray-500 hover:text-gray-700"
                   }`}
@@ -244,7 +297,7 @@ export default function RankingPage({ allGames, initialTab }: Props) {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-8">
-        {activeTab === "search" && (
+        {tab === "search" && (
           <div>
             <div className="mb-6">
               <h1 className="text-2xl font-bold text-gray-900">ボードゲームを検索</h1>
@@ -261,8 +314,8 @@ export default function RankingPage({ allGames, initialTab }: Props) {
                   </svg>
                   <input
                     type="text"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
+                    value={localQuery}
+                    onChange={(e) => setLocalQuery(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                     placeholder="ゲーム名・タグで検索..."
                     className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
@@ -273,7 +326,7 @@ export default function RankingPage({ allGames, initialTab }: Props) {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">プレイ人数</label>
-                  <select value={playerFilter} onChange={(e) => setPlayerFilter(e.target.value)}
+                  <select value={localPlayers} onChange={(e) => setLocalPlayers(e.target.value)}
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
                     <option value="">すべて</option>
                     {PLAYER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -281,7 +334,7 @@ export default function RankingPage({ allGames, initialTab }: Props) {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">所要時間</label>
-                  <select value={playTimeFilter} onChange={(e) => setPlayTimeFilter(e.target.value)}
+                  <select value={localPlayTime} onChange={(e) => setLocalPlayTime(e.target.value)}
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
                     <option value="">すべて</option>
                     {PLAY_TIME_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -289,7 +342,7 @@ export default function RankingPage({ allGames, initialTab }: Props) {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">難易度</label>
-                  <select value={difficultyFilter} onChange={(e) => setDifficultyFilter(e.target.value)}
+                  <select value={localDifficulty} onChange={(e) => setLocalDifficulty(e.target.value)}
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
                     <option value="">すべて</option>
                     {DIFFICULTY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -297,10 +350,10 @@ export default function RankingPage({ allGames, initialTab }: Props) {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">ジャンル</label>
-                  <select value={genreFilter} onChange={(e) => setGenreFilter(e.target.value)}
+                  <select value={localGenre} onChange={(e) => setLocalGenre(e.target.value)}
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
                     <option value="">すべて</option>
-                    {allGenres.map((genre) => <option key={genre} value={genre}>{genre}</option>)}
+                    {genres.map((g) => <option key={g} value={g}>{g}</option>)}
                   </select>
                 </div>
               </div>
@@ -310,56 +363,56 @@ export default function RankingPage({ allGames, initialTab }: Props) {
                   className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition text-sm">
                   検索
                 </button>
-                <button onClick={handleReset}
+                <button onClick={handleSearchReset}
                   className="px-4 py-2.5 border border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300 rounded-lg transition text-sm">
                   リセット
                 </button>
               </div>
             </div>
 
-            {results !== null && (
+            {searched && (
               <div>
                 <p className="text-sm text-gray-500 mb-3">
-                  {results.length > 0
-                    ? `${results.length}件のゲームが見つかりました`
+                  {total > 0
+                    ? `${total}件のゲームが見つかりました`
                     : "条件に一致するゲームが見つかりませんでした"}
                 </p>
-                {results.length > 0 && (
+                {total > 0 && (
                   <>
                     <div className="space-y-3">
-                      {pagedResults.map((game, index) => (
-                        <GameCard key={game.id} game={game} rank={(searchPage - 1) * PAGE_SIZE + index + 1} showVotes={false} />
+                      {games.map((game, index) => (
+                        <GameCard key={game.id} game={game} rank={(page - 1) * PAGE_SIZE + index + 1} showVotes={false} />
                       ))}
                     </div>
-                    {results.length > PAGE_SIZE && (
+                    {total > PAGE_SIZE && (
                       <div className="flex items-center justify-center gap-2 mt-6">
                         <button
-                          onClick={() => setSearchPage(1)}
-                          disabled={searchPage === 1}
+                          onClick={() => handleSearchPageChange(1)}
+                          disabled={page === 1}
                           className="px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
                         >
                           最初へ
                         </button>
                         <button
-                          onClick={() => setSearchPage((p) => p - 1)}
-                          disabled={searchPage === 1}
+                          onClick={() => handleSearchPageChange(page - 1)}
+                          disabled={page === 1}
                           className="px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
                         >
                           前へ
                         </button>
                         <span className="text-sm text-gray-500 px-2">
-                          {searchPage} / {Math.ceil(results.length / PAGE_SIZE)}
+                          {page} / {totalPages}
                         </span>
                         <button
-                          onClick={() => setSearchPage((p) => p + 1)}
-                          disabled={searchPage >= Math.ceil(results.length / PAGE_SIZE)}
+                          onClick={() => handleSearchPageChange(page + 1)}
+                          disabled={page >= totalPages}
                           className="px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
                         >
                           次へ
                         </button>
                         <button
-                          onClick={() => setSearchPage(Math.ceil(results.length / PAGE_SIZE))}
-                          disabled={searchPage >= Math.ceil(results.length / PAGE_SIZE)}
+                          onClick={() => handleSearchPageChange(totalPages)}
+                          disabled={page >= totalPages}
                           className="px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
                         >
                           最後へ
@@ -373,7 +426,7 @@ export default function RankingPage({ allGames, initialTab }: Props) {
           </div>
         )}
 
-        {activeTab === "ranking" && (
+        {tab === "ranking" && (
           <div>
             <div className="mb-6">
               <h1 className="text-2xl font-bold text-gray-900">ボードゲーム人気ランキング</h1>
@@ -384,7 +437,7 @@ export default function RankingPage({ allGames, initialTab }: Props) {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">プレイ人数</label>
-                  <select value={rankPlayerFilter} onChange={(e) => { setRankPlayerFilter(e.target.value); setRankPage(1); }}
+                  <select value={players} onChange={(e) => handleRankFilterChange({ players: e.target.value })}
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
                     <option value="">すべて</option>
                     {PLAYER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -392,7 +445,7 @@ export default function RankingPage({ allGames, initialTab }: Props) {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">所要時間</label>
-                  <select value={rankPlayTimeFilter} onChange={(e) => { setRankPlayTimeFilter(e.target.value); setRankPage(1); }}
+                  <select value={playTime} onChange={(e) => handleRankFilterChange({ time: e.target.value })}
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
                     <option value="">すべて</option>
                     {PLAY_TIME_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -400,7 +453,7 @@ export default function RankingPage({ allGames, initialTab }: Props) {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">難易度</label>
-                  <select value={rankDifficultyFilter} onChange={(e) => { setRankDifficultyFilter(e.target.value); setRankPage(1); }}
+                  <select value={difficulty} onChange={(e) => handleRankFilterChange({ difficulty: e.target.value })}
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
                     <option value="">すべて</option>
                     {DIFFICULTY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -408,18 +461,18 @@ export default function RankingPage({ allGames, initialTab }: Props) {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">ジャンル</label>
-                  <select value={rankGenreFilter} onChange={(e) => { setRankGenreFilter(e.target.value); setRankPage(1); }}
+                  <select value={genre} onChange={(e) => handleRankFilterChange({ genre: e.target.value })}
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition bg-white">
                     <option value="">すべて</option>
-                    {allGenres.map((genre) => <option key={genre} value={genre}>{genre}</option>)}
+                    {genres.map((g) => <option key={g} value={g}>{g}</option>)}
                   </select>
                 </div>
               </div>
               {isRankingFiltered && (
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                  <p className="text-sm text-gray-500">{filteredRanking.length}件</p>
+                  <p className="text-sm text-gray-500">{total}件</p>
                   <button
-                    onClick={() => { setRankPlayerFilter(""); setRankPlayTimeFilter(""); setRankDifficultyFilter(""); setRankGenreFilter(""); setRankPage(1); }}
+                    onClick={handleRankReset}
                     className="text-xs text-indigo-600 hover:underline"
                   >
                     リセット
@@ -429,39 +482,39 @@ export default function RankingPage({ allGames, initialTab }: Props) {
             </div>
 
             <div className="space-y-3">
-              {pagedRanking.map((game, index) => (
-                <GameCard key={game.id} game={game} rank={(rankPage - 1) * PAGE_SIZE + index + 1} />
+              {games.map((game, index) => (
+                <GameCard key={game.id} game={game} rank={(page - 1) * PAGE_SIZE + index + 1} />
               ))}
             </div>
-            {filteredRanking.length > PAGE_SIZE && (
+            {total > PAGE_SIZE && (
               <div className="flex items-center justify-center gap-2 mt-6">
                 <button
-                  onClick={() => setRankPage(1)}
-                  disabled={rankPage === 1}
+                  onClick={() => handleRankPageChange(1)}
+                  disabled={page === 1}
                   className="px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
                 >
                   最初へ
                 </button>
                 <button
-                  onClick={() => setRankPage((p) => p - 1)}
-                  disabled={rankPage === 1}
+                  onClick={() => handleRankPageChange(page - 1)}
+                  disabled={page === 1}
                   className="px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
                 >
                   前へ
                 </button>
                 <span className="text-sm text-gray-500 px-2">
-                  {rankPage} / {Math.ceil(filteredRanking.length / PAGE_SIZE)}
+                  {page} / {totalPages}
                 </span>
                 <button
-                  onClick={() => setRankPage((p) => p + 1)}
-                  disabled={rankPage >= Math.ceil(filteredRanking.length / PAGE_SIZE)}
+                  onClick={() => handleRankPageChange(page + 1)}
+                  disabled={page >= totalPages}
                   className="px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
                 >
                   次へ
                 </button>
                 <button
-                  onClick={() => setRankPage(Math.ceil(filteredRanking.length / PAGE_SIZE))}
-                  disabled={rankPage >= Math.ceil(filteredRanking.length / PAGE_SIZE)}
+                  onClick={() => handleRankPageChange(totalPages)}
+                  disabled={page >= totalPages}
                   className="px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
                 >
                   最後へ
