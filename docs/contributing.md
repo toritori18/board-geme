@@ -67,6 +67,7 @@
 - 存在しない npm パッケージ・API・メソッドの使用（実装前に [.claude/factcheck.md](../.claude/factcheck.md) のチェックリストに従い実在確認する）
 - `any` 型の使用（ESLintにより `error` として検出される）
 - `console.log` を本番コードに残すこと（ESLintにより `warn` として検出される）
+  - ただし `console.error` / `console.warn` は許可している。サーバーレス環境ではログ収集基盤が別途無く、APIルートで起きた障害を後から追う手段がこれしか無いため。デバッグ目的の出力を消し忘れないことが `no-console` の狙いであり、意図して残す障害ログはその対象外とする
 - APIキー・シークレットのコードへの直書き（必ず `.env.local` 経由で参照する）
 - `.env.local` の git へのコミット
 

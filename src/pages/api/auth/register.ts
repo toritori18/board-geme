@@ -54,6 +54,29 @@ export default async function handler(
     });
   }
 
+  // set-password.ts は M_USER に該当行が無いユーザーを「招待されていない」と判断して
+  // 403 で拒否する（招待制の回避経路を塞ぐための措置）。そのため招待メール送信の成功後に
+  // ここで M_USER の行を先に作っておかないと、登録再開時に招待されたユーザー自身が
+  // set-password で弾かれ、誰もパスワードを設定できなくなる。
+  // 招待の成否が確定する前に行を作ると、招待に失敗した場合に孤児行が残るため、
+  // 必ず inviteUserByEmail の成功後に insert する。
+  const { error: dbError } = await supabaseAdmin.from("M_USER").insert({
+    email,
+    user_name: email.split("@")[0],
+    password_hash: null,
+  });
+
+  if (dbError) {
+    // 招待メールは既に送信済みのため、失敗をユーザーに隠して確認メールを送った体で
+    // 返すと set-password が永遠に 403 を返し続ける事態に気付けない。ログに残したうえで
+    // 500 を返し、招待メール自体は再送不要であることを運用側が把握できるようにする。
+    console.error("M_USER への招待行作成に失敗しました:", dbError);
+    return res.status(500).json({
+      success: false,
+      message: "登録処理に失敗しました。しばらく経ってから再度お試しください。",
+    });
+  }
+
   return res.status(200).json({
     success: true,
     message: "確認メールを送信しました。メール内のリンクからパスワードを設定してください。",
