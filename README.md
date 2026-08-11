@@ -76,7 +76,7 @@ board-geme/
 │   ├── development-setup.md  # セットアップガイド
 │   ├── contributing.md        # コントリビュートガイド
 │   ├── powershell-contributing.md  # PowerShell（`.ps1`）のコーディング規約
-│   └── sql/                    # スキーマDDL・データ修正SQL（Supabase SQL Editorで実行）
+│   └── sql/                    # スキーマDDL・データ投入SQL（Supabase SQL Editorで実行 / `.gitignore` で追跡対象外）
 ├── scripts/                 # データ投入・バッチ処理スクリプト
 │   └── lib/                 # ユーティリティモジュール
 └── tests/                   # テスト

@@ -97,8 +97,7 @@ function Get-HeadingSlugSet {
 Write-Host "ドキュメントの参照先を検査しています..." -ForegroundColor Cyan
 
 # 検査対象は git の追跡対象の .md に限る。.gitignore 対象（docs/sql/ 配下等）は
-# ls-files が返さないため、自動的に対象外になる（ただしリンク先の実在判定は後述の通り
-# Test-Path で行うため、docs/sql/ 配下のファイルへのリンクは問題なく解決できる）。
+# ls-files が返さないため、自動的に対象外になる。
 # core.quotepath=false を指定しないと、日本語を含むパスが \343\202... 形式でクォートされて返る。
 $allMarkdown = git -C $RepoRoot -c core.quotepath=false ls-files '*.md'
 if (-not $?) {
@@ -172,8 +171,10 @@ foreach ($relativePath in $targets) {
             }
 
             $linkCount++
-            # docs/sql/ は .gitignore で除外されているが実体はディスク上に存在するため、
-            # git の追跡状態ではなく Test-Path（ディスク上の実在）で判定する。
+            # リンク先の実在は git の追跡状態ではなく Test-Path（ディスク上の実在）で判定する。
+            # 注意: そのため .gitignore 対象（docs/sql/ 配下等）へのリンクは、手元では
+            # 実体があるので通るが、CI のクリーンなチェックアウトでは存在せず落ちる。
+            # 追跡対象の .md から docs/sql/ 配下へリンクを張らないこと。
             $resolvedPath = Join-Path $fileDir ($linkPath -replace '/', '\')
             if (-not (Test-Path -LiteralPath $resolvedPath)) {
                 $brokenLinks.Add("$relativePath`:$lineNumber  $url")

@@ -8,7 +8,8 @@ import { supabaseAdmin } from "@/utils/supabase-admin";
  * ホスティングは Vercel（サーバーレス）であり、インスタンスごとにメモリが
  * 独立しているため、インメモリの Map ではレート制限が実効性を持たない。
  * Supabase の T_AUTH_ATTEMPT テーブルと RPC 関数（consume_auth_attempt /
- * reset_auth_attempt。docs/sql/create_auth_attempt_table.sql 参照）に
+ * reset_auth_attempt。DDL は docs/sql/create_auth_attempt_table.sql だが、
+ * docs/sql/ は .gitignore で追跡対象外のためリポジトリには含まれない）に
  * カウンタを一元管理させる。
  */
 
