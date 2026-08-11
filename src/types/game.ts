@@ -10,5 +10,6 @@ export type Game = {
   rating: number;
   votes: number;
   difficulty: string;
+  bggRank: number | null;
   tags: string[];
 };

@@ -18,6 +18,16 @@ type MUser = {
   password_hash: string;
 };
 
+// 未登録アドレスは bcrypt.compare を通らないぶん応答が速く、応答時間の差で
+// アドレスの登録有無が外部から判別できてしまう（メール送信の有無を返さない
+// forgot-password.ts と同じ「登録有無を判別させない」方針をここでも守るため）。
+// ユーザーが見つからなかった場合もダミーハッシュとの比較を挟んで所要時間を揃える。
+// bcrypt.hash はコストが高いため、リクエストごとに生成すると逆に遅くなる。
+// モジュール読み込み時に1回だけ生成し、使い回す。
+// ハッシュ文字列は実在するパスワードのハッシュではなく、起動時にランダムな
+// ソルトで都度生成される値のため、直書きの固定値にはしない。
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync("dummy-password-for-timing-safety", 10);
+
 type LoginResponse = {
   success: boolean;
   message: string;
@@ -71,6 +81,10 @@ export default async function handler(
     .single<MUser>();
 
   if (error || !user) {
+    // 比較結果は使わない（どのみち401を返す）が、bcrypt.compare自体は実行する。
+    // ここを省略すると、ユーザーが見つからない場合だけ bcrypt.compare の分だけ
+    // 応答が速くなり、応答時間の差からアドレスの登録有無が外部から推測できてしまう。
+    await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
     return res.status(401).json({
       success: false,
       message: "メールアドレスまたはパスワードが正しくありません。",

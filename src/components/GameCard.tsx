@@ -4,9 +4,31 @@ import StarRating from "@/components/StarRating";
 
 type Props = {
   game: Game;
-  rank: number;
+  // 検索結果はBGG順位そのままではランキングとして意味を持たないため、
+  // rankを渡さない（バッジ非表示）呼び出しを許容する
+  rank?: number | null;
   showVotes?: boolean;
 };
+
+// 以前はページ内の連番（1〜20、最大2桁）を渡していたため w-10 の固定幅の円で
+// 収まっていたが、BGGの実順位（bggRank）を表示するようになり最大5桁
+// （実データ: 2026-08-11時点でbgg_rankの最大値は20344）になったため、固定幅のままでは
+// テキストがはみ出す。Tailwindはソースコードを文字列として走査するため、
+// `text-${n}` のように実行時にクラス名を組み立てるとスタイルが生成されない。
+// 桁数区分ごとの完全なクラス名をあらかじめ定数として持ち、実行時にはこの中から
+// 選ぶだけにする（StarRating.tsx の SIZE_CLASS と同じ理由・同じ書き方）。
+const RANK_TEXT_CLASS = {
+  short: "text-lg", // 1〜2桁
+  medium: "text-base", // 3桁
+  long: "text-sm", // 4桁以上
+} as const;
+
+function rankTextSizeKey(rank: number): keyof typeof RANK_TEXT_CLASS {
+  const digits = String(rank).length;
+  if (digits <= 2) return "short";
+  if (digits === 3) return "medium";
+  return "long";
+}
 
 export default function GameCard({ game, rank, showVotes = true }: Props) {
   const rankColors: Record<number, string> = {
@@ -14,15 +36,20 @@ export default function GameCard({ game, rank, showVotes = true }: Props) {
     2: "bg-gray-300 text-gray-700",
     3: "bg-amber-600 text-amber-100",
   };
-  const rankClass = rankColors[rank] ?? "bg-indigo-100 text-indigo-700";
+  const rankClass = rank != null ? (rankColors[rank] ?? "bg-indigo-100 text-indigo-700") : "";
+  const rankTextClass = rank != null ? RANK_TEXT_CLASS[rankTextSizeKey(rank)] : "";
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-start gap-4 hover:shadow-md hover:border-indigo-200 transition-all">
-      <div
-        className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg shrink-0 ${rankClass}`}
-      >
-        {rank}
-      </div>
+      {rank != null && (
+        // 固定幅の円(w-10)ではなく最小幅(min-w-10)のピル型にすることで、
+        // 1〜2桁のときは今までどおり円に見えつつ、3桁以上でも横に伸びて収まる
+        <div
+          className={`min-w-10 h-10 px-2 rounded-full flex items-center justify-center font-bold shrink-0 ${rankTextClass} ${rankClass}`}
+        >
+          {rank}
+        </div>
+      )}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <h2 className="text-lg font-bold text-gray-900">{game.name}</h2>

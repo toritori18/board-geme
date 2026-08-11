@@ -40,6 +40,7 @@
 
 - スタイルは Tailwind CSS のみ使用する
 - CSS Modules・インラインの `style` 属性は使わない
+- 画像は `next/image` の `<Image />` ではなく `<img>` タグで書く。対象はすべて `public/` 配下のロゴ・ヘッダ画像であり、`next/image` による最適化の恩恵よりも、既存の Tailwind クラスとの兼ね合いによるレイアウト調整のコストが上回ると判断したため。この方針に合わせ、ESLint の `@next/next/no-img-element` ルールは `off` にしている（[.eslintrc.json](../.eslintrc.json)）。警告を放置せず0件に保つことで、新しく発生した別の警告が埋もれないようにする狙いもある
 
 #### `.css` ファイル
 
@@ -68,6 +69,7 @@
 - `any` 型の使用（ESLintにより `error` として検出される）
 - `console.log` を本番コードに残すこと（ESLintにより `warn` として検出される）
   - ただし `console.error` / `console.warn` は許可している。サーバーレス環境ではログ収集基盤が別途無く、APIルートで起きた障害を後から追う手段がこれしか無いため。デバッグ目的の出力を消し忘れないことが `no-console` の狙いであり、意図して残す障害ログはその対象外とする
+  - `npm run lint`（`next lint`）は既定では `src/` `app/` `pages/` `components/` `lib/` 配下のみを対象とし、`scripts/` は対象に含まれない（`scripts/` に対しては `npx tsc --noEmit` による型検査のみが効く）。`scripts/` はデータ投入用の使い捨てスクリプトで、進捗表示に `console.log` を使うため、lint対象外であることは意図した運用である。`scripts/` を lint 対象に含めたい場合は `next lint --dir <ディレクトリ>` で対象ディレクトリを追加できる
 - APIキー・シークレットのコードへの直書き（必ず `.env.local` 経由で参照する）
 - `.env.local` の git へのコミット
 
