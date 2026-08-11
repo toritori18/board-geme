@@ -20,6 +20,13 @@ data/test-output.json
 docs/sql/*
 !docs/sql/create_game_tables.sql
 !docs/sql/update_description_ja.sql
+!docs/sql/create_auth_attempt_table.sql
+
+# コードレビュー結果の記録。指摘の解消をもって役目を終える作業用メモであり、
+# 版管理せず手元に置く（過去分の docs/code-review-2026-08-09.md は
+# 全件対応後に 2dfcd8b で削除した）。
+# 追跡対象外になるため、CI の verify-docs.ps1 によるリンク検査は掛からない。
+docs/code-review-*.md
 
 # Claude Code 個人設定（チーム共有しない）
 .claude/settings.local.json

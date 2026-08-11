@@ -63,37 +63,34 @@ export default function SetPasswordPage() {
     }
 
     setLoading(true);
+    try {
+      // Auth 側と M_USER 側の更新は API ルートに集約している（サーバー側で
+      // M_USER を先に更新することで、片方だけ失敗したときに安全な側に倒れる）
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/auth/set-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.access_token ?? ""}`,
+        },
+        body: JSON.stringify({ password }),
+      });
 
-    // Supabase Auth のパスワードを設定
-    const { error: authError } = await supabase.auth.updateUser({ password });
-    if (authError) {
-      setError("パスワードの設定に失敗しました。もう一度お試しください。");
+      const data = (await res.json()) as { success: boolean; message: string };
+
+      if (!res.ok || !data.success) {
+        setError(data.message ?? "パスワードの設定に失敗しました。");
+        return;
+      }
+
+      setSuccess("パスワードを設定しました。ログインページに移動します。");
+      await supabase.auth.signOut();
+      setTimeout(() => router.push("/"), 2000);
+    } catch {
+      setError("通信エラーが発生しました。しばらく経ってから再度お試しください。");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    // M_USER テーブルにレコードを作成
-    const { data: { session } } = await supabase.auth.getSession();
-    const res = await fetch("/api/auth/set-password", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${session?.access_token ?? ""}`,
-      },
-      body: JSON.stringify({ password }),
-    });
-    const data = await res.json() as { success: boolean };
-
-    setLoading(false);
-
-    if (!data.success) {
-      setError("アカウントの作成に失敗しました。");
-      return;
-    }
-
-    setSuccess("アカウントを作成しました。ログインページに移動します。");
-    await supabase.auth.signOut();
-    setTimeout(() => router.push("/"), 2000);
   };
 
   if (!ready) {

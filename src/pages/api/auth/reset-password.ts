@@ -38,10 +38,12 @@ export default async function handler(
     return res.status(401).json({ success: false, message: "セッションが無効です。" });
   }
 
-  // M_USER テーブルのパスワードハッシュを更新
   // 対症療法: 根本原因は Supabase Auth と M_USER.password_hash の二重管理であり、
-  // その解消は今回の対象外。ここでは M_USER に該当行が無いケース（Supabase Auth
-  // 側にのみ存在するユーザー）を検出できるよう、更新件数を確認するにとどめる。
+  // その解消は今回の対象外。ここでは「ログインは M_USER.password_hash を見て行われる」
+  // という事実に合わせ、M_USER を先に更新する。もし Auth 側の更新（このあと実行）が
+  // 失敗しても、ログインに使う側は既に新パスワードになっているため、利用者は新しい
+  // パスワードでログインできる。逆順（Auth を先に更新）だと、M_USER 側の更新に
+  // 失敗したときに画面は「失敗」と出るのに旧パスワードが有効なまま残ってしまう。
   const passwordHash = await bcrypt.hash(password, 10);
   const { data: updatedRows, error: dbError } = await supabaseAdmin
     .from("M_USER")
@@ -61,6 +63,21 @@ export default async function handler(
       success: false,
       message: "アカウントが見つかりませんでした。",
     });
+  }
+
+  // Supabase Auth 側のパスワードも更新する。ここで渡す user.id は
+  // getUser() が返す Supabase Auth 側の UUID であり、M_USER.id
+  // （gen_random_uuid() で採番される別のUUID）とは異なるので注意。
+  const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+    password,
+  });
+
+  if (authUpdateError) {
+    // ここが失敗しても M_USER 側は既に更新済みで、ログインは新パスワードで
+    // 通るため利用者の目的は達成されている。失敗を画面に出して再試行を促すと
+    // 「新パスワードでログインできる」という実態と表示が食い違うため、200を返し
+    // 障害はサーバーログにのみ残す。
+    console.error("Supabase Auth側のパスワード更新に失敗しました:", authUpdateError);
   }
 
   return res.status(200).json({ success: true, message: "パスワードを更新しました。" });

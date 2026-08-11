@@ -69,37 +69,33 @@ export default function ResetPasswordPage() {
     }
 
     setLoading(true);
+    try {
+      // Auth 側と M_USER 側の更新は API ルートに集約している（サーバー側で
+      // M_USER を先に更新することで、片方だけ失敗したときに安全な側に倒れる）
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.access_token ?? ""}`,
+        },
+        body: JSON.stringify({ password }),
+      });
 
-    // Supabase Auth のパスワードを更新
-    const { error: authError } = await supabase.auth.updateUser({ password });
+      const data = (await res.json()) as { success: boolean; message: string };
 
-    if (authError) {
-      setError("パスワードの更新に失敗しました。リセットメールを再度お送りください。");
+      if (!res.ok || !data.success) {
+        setError(data.message ?? "パスワードの更新に失敗しました。");
+        return;
+      }
+
+      setSuccess("パスワードを更新しました。ログインページに移動します。");
+      setTimeout(() => router.push("/"), 2000);
+    } catch {
+      setError("通信エラーが発生しました。しばらく経ってから再度お試しください。");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    // M_USER テーブルのパスワードハッシュも更新（セッショントークンをヘッダーで渡す）
-    const { data: { session } } = await supabase.auth.getSession();
-    const res = await fetch("/api/auth/reset-password", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${session?.access_token ?? ""}`,
-      },
-      body: JSON.stringify({ password }),
-    });
-    const data = await res.json() as { success: boolean };
-
-    setLoading(false);
-
-    if (!data.success) {
-      setError("パスワードの更新に失敗しました。");
-      return;
-    }
-
-    setSuccess("パスワードを更新しました。ログインページに移動します。");
-    setTimeout(() => router.push("/"), 2000);
   };
 
   if (status === "checking") {
