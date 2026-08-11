@@ -53,6 +53,16 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 **未設定のときは `http://localhost:3000` にフォールバックします。** ローカル開発では問題になりませんが、本番環境で未設定のままだと、利用者に届くメールのリンク先が `http://localhost:3000` になり再設定が完了できません。**Vercel の環境変数に本番ドメインを必ず設定してください。**
 
+## Supabase のテーブル作成
+
+Supabase CLI によるマイグレーション管理は未導入です。テーブル・関数（DDL）は `docs/sql/` 配下の SQL ファイルを Supabase ダッシュボードの SQL Editor で手動実行して作成します。
+
+### 認証エンドポイントのレート制限テーブル
+
+ログイン（[login.ts](../src/pages/api/auth/login.ts)）・パスワードリセット（[forgot-password.ts](../src/pages/api/auth/forgot-password.ts)）の総当たり対策は、Supabase のテーブルと RPC 関数（[src/utils/rate-limit.ts](../src/utils/rate-limit.ts) が呼び出す `consume_auth_attempt` / `reset_auth_attempt`）で実装しています。Supabase ダッシュボードの SQL Editor で [create_auth_attempt_table.sql](../docs/sql/create_auth_attempt_table.sql) の内容を実行してください。環境変数の追加は不要です。
+
+未実行のまま `npm run dev` を起動しても、RPC 呼び出しが失敗するだけでログイン自体は通ります（`consumeAttempt()` は DB 障害時に fail-open する設計のため）。ただしレート制限は機能しないため、開発時も実行しておくことを推奨します。
+
 ## Git フックの登録
 
 push 前の機密情報チェック（`.claude/hooks/pre-push`）を有効にするため、クローン後に必ず実行してください。
