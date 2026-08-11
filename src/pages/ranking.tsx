@@ -100,6 +100,33 @@ export const getServerSideProps: GetServerSideProps<Props> = async ({ req, query
   };
   const { games, total } = await fetchGamesPage({ page, pageSize: PAGE_SIZE, filters });
 
+  // ?page=99999 のような範囲外のページ番号を直接開かれると、fetchGamesPage() は
+  // 「0件」を返す（PGRST103のフォールバック、game-mapper.ts参照）。total > 0（条件に
+  // 一致する行自体は存在する）のに指定ページだけ空になるのは、URLと表示内容が
+  // 食い違って利用者が混乱するため、実際に存在する最終ページへリダイレクトする。
+  // total === 0（そもそも条件に一致するゲームが無い）のときはリダイレクトせず
+  // 「0件」の表示に任せる（無限リダイレクトを避けるため）。
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (page > totalPages && total > 0) {
+    const redirectParams =
+      tab === "search"
+        ? buildQuery({
+            tab,
+            page: String(totalPages),
+            searched: "1",
+            q,
+            players,
+            time: playTime,
+            difficulty,
+            genre,
+          })
+        : buildQuery({ tab, page: String(totalPages), players, time: playTime, difficulty, genre });
+    const search = new URLSearchParams(redirectParams).toString();
+    return {
+      redirect: { destination: `/ranking?${search}`, permanent: false },
+    };
+  }
+
   return {
     props: { tab, games, total, page, query: q, players, playTime, difficulty, genre, genres, searched },
   };
@@ -389,8 +416,10 @@ export default function RankingPage({
                   {total > 0 && (
                     <>
                       <div className="space-y-3">
-                        {games.map((game, index) => (
-                          <GameCard key={game.id} game={game} rank={(page - 1) * PAGE_SIZE + index + 1} showVotes={false} />
+                        {games.map((game) => (
+                          // 検索結果は連番の「上から数えた順位」ではなくBGG順位でもないため、
+                          // rankを渡さずランクバッジを非表示にする（先頭3件に金銀銅が付く不具合の解消）
+                          <GameCard key={game.id} game={game} showVotes={false} />
                         ))}
                       </div>
                       {total > PAGE_SIZE && (
@@ -491,8 +520,9 @@ export default function RankingPage({
               </div>
 
               <div className="space-y-3">
-                {games.map((game, index) => (
-                  <GameCard key={game.id} game={game} rank={(page - 1) * PAGE_SIZE + index + 1} />
+                {games.map((game) => (
+                  // ページ内の連番ではなく BoardGameGeek 公表の実順位（bggRank）を表示する
+                  <GameCard key={game.id} game={game} rank={game.bggRank} />
                 ))}
               </div>
               {total > PAGE_SIZE && (

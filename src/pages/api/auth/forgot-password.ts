@@ -50,11 +50,25 @@ export default async function handler(
     });
   }
 
-  const { data: existing } = await supabaseAdmin
+  // maybeSingle()は0件のとき data: null / error: null を返すため、
+  // 「未登録」の場合と「本当のDB障害」を区別できる（.single()だと0件もエラーになり、
+  // errorを見ないと両者が区別できず、DB障害時も「未登録」と同じ経路でメールを送らず
+  // 成功を返してしまう）。
+  const { data: existing, error: existingError } = await supabaseAdmin
     .from("M_USER")
     .select("id")
     .eq("email", email)
-    .single();
+    .maybeSingle();
+
+  if (existingError) {
+    // ここで500を返しても「登録の有無をレスポンスから判別させない」方針（下記コメント）は
+    // 崩れない。DB障害はアドレスがM_USERに存在するかどうかとは無関係に発生するため、
+    // 500が返ったこと自体が登録有無の手がかりにはならない。
+    return res.status(500).json({
+      success: false,
+      message: "処理中にエラーが発生しました。しばらく経ってから再度お試しください。",
+    });
+  }
 
   // 登録の有無をレスポンスから判別できると、任意のアドレスが登録済みかを
   // 外部から総当たりで確認できてしまう（login.ts と同じ方針）。

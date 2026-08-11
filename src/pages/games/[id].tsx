@@ -10,7 +10,6 @@ import StarRating from "@/components/StarRating";
 
 type Props = {
   game: Game | null;
-  rank: number;
 };
 
 export const getServerSideProps: GetServerSideProps<Props> = async ({ req, params }) => {
@@ -19,12 +18,16 @@ export const getServerSideProps: GetServerSideProps<Props> = async ({ req, param
   }
 
   const id = Number(params?.id);
-  if (isNaN(id)) return { props: { game: null, rank: 0 } };
-  const { game, bggRank } = await fetchGameById(id);
-  return { props: { game, rank: bggRank } };
+  // getServerSidePropsのpropsはJSON直列化されるため、undefinedではなく必ずnullを返す。
+  // isNaN()だけの判定だと `1.5` や `" 12 "` のような値も通ってしまう
+  // （Number("1.5")やNumber(" 12 ")はNaNにならない）。T_GAME.idはINTEGER PRIMARY KEYの
+  // 正の整数のみなので、Number.isInteger()で整数かどうかも確認し、0以下も弾く。
+  if (!Number.isInteger(id) || id <= 0) return { props: { game: null } };
+  const game = await fetchGameById(id);
+  return { props: { game } };
 };
 
-export default function GameDetailPage({ game, rank }: Props) {
+export default function GameDetailPage({ game }: Props) {
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -77,8 +80,13 @@ export default function GameDetailPage({ game, rank }: Props) {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="bg-gradient-to-r from-indigo-500 to-purple-600 h-44 flex items-center justify-center">
               <div className="text-center text-white">
-                <p className="text-6xl font-black opacity-20">#{rank}</p>
-                <p className="text-3xl font-bold -mt-4">{game.name}</p>
+                {/* bggRankがnull（順位データ無し）のときは "#0" や "#null" を出さない */}
+                {game.bggRank != null && (
+                  <p className="text-6xl font-black opacity-20">#{game.bggRank}</p>
+                )}
+                <p className={`text-3xl font-bold ${game.bggRank != null ? "-mt-4" : ""}`}>
+                  {game.name}
+                </p>
               </div>
             </div>
 
@@ -110,19 +118,22 @@ export default function GameDetailPage({ game, rank }: Props) {
                 </div>
               )}
 
-              <div>
-                <h2 className="text-sm font-semibold text-gray-700 mb-2">タグ</h2>
-                <div className="flex gap-2 flex-wrap">
-                  {game.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="text-sm bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full"
-                    >
-                      {tag}
-                    </span>
-                  ))}
+              {/* game.description と同様、タグが1件も無いときは見出しごと畳む */}
+              {game.tags.length > 0 && (
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-700 mb-2">タグ</h2>
+                  <div className="flex gap-2 flex-wrap">
+                    {game.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-sm bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
           {/* AIおすすめセクション（準備中） */}

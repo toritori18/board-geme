@@ -19,20 +19,26 @@ export default function ForgotPasswordPage() {
     }
 
     setLoading(true);
-    const res = await fetch("/api/auth/forgot-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    const data = await res.json() as { success: boolean; message: string };
-    setLoading(false);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
 
-    if (!data.success) {
-      setError(data.message);
-      return;
+      const data = (await res.json()) as { success: boolean; message: string };
+
+      if (!res.ok || !data.success) {
+        setError(data.message ?? "メール送信に失敗しました。");
+        return;
+      }
+
+      setSuccess(data.message);
+    } catch {
+      setError("通信エラーが発生しました。しばらく経ってから再度お試しください。");
+    } finally {
+      setLoading(false);
     }
-
-    setSuccess(data.message);
   };
 
   return (

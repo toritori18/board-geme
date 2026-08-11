@@ -14,7 +14,10 @@ const supabase = createClient(
 type DescriptionResult = { name_ja: string; short_description_ja: string };
 
 function parseNumber(value: string): number | null {
-  const n = parseFloat(value.replace(",", "."));
+  // replace(",", ".") だと最初の1個しか置換されないため、桁区切りの "," が
+  // 複数含まれる値（例: "1,234.5" 相当の表記揺れ）で2個目以降が残ってしまう。
+  // replaceAll() で全て置換する。
+  const n = parseFloat(value.replaceAll(",", "."));
   return isNaN(n) ? null : n;
 }
 
@@ -59,7 +62,9 @@ async function insertGameGenre(games: GameRecord[]): Promise<Record<string, numb
         g["Domains"] ? g["Domains"].split(",").map((d) => d.trim()).filter(Boolean) : []
       )
     )
-  );
+    // insertGameKind() と揃えてソートする。再実行時にupsertの入力順が変わらなくなり、
+    // 差分（ログ出力・投入順）が読みやすくなるため。
+  ).sort();
 
   console.log(`M_GAME_GENREに挿入中... (${allDomains.length}件)`);
   const { data, error } = await supabase

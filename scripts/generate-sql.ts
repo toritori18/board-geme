@@ -1,3 +1,14 @@
+// 前提: このスクリプトは「空のマスタ（M_GAME_KIND / M_GAME_GENRE）に対して1回だけ流す」
+// 初回投入専用である。M_GAME_KIND.id / M_GAME_GENRE.id をDBに採番させず、CSVから読んだ
+// メカニクス・ドメインの一覧をソートしてローカルで `i + 1` を振っている（下記
+// mechanicsId / domainsId）。マスタに既存行がある状態でこのSQLを流すと、ここで振った
+// ローカルのIDと実際のDB上のIDがずれ、T_GAME.game_domain_id / game_type_id が
+// 指す先を誤り、ジャンルタグが全件ずれる。
+// 同じ問題は scripts/insert-to-db.ts（`npm run seed:insert`）では、マスタをupsertした後に
+// `.select("id, ...")` でDB採番済みの実IDを読み戻す方式（insertGameKind() /
+// insertGameGenre()）で解決済み。既存データへの追加投入には常にそちらを使うこと。
+// 本スクリプトはそのDB採番読み戻し方式への全面書き換えはせず、代わりに生成SQLの先頭に
+// マスタが空であることを実行時に検証するガード（下記 DO $$ ブロック）を出力する。
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,7 +19,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 type DescriptionResult = { name_ja: string; short_description_ja: string };
 
 function parseNum(value: string): number | null {
-  const n = parseFloat(value.replace(",", "."));
+  // replace(",", ".") だと最初の1個しか置換されないため、"," が複数含まれる値で
+  // 2個目以降が残ってしまう（scripts/insert-to-db.ts の parseNumber() と同じ問題）。
+  // replaceAll() で全て置換する。
+  const n = parseFloat(value.replaceAll(",", "."));
   return isNaN(n) ? null : n;
 }
 
@@ -61,6 +75,26 @@ function main() {
   out.push("");
 
   // ----------------------------------------------------------------
+  // 前提チェック: マスタが空であることを実行時に強制する
+  // ローカルで振ったID（mechanicsId / domainsId、ファイル冒頭コメント参照）は、
+  // マスタが空である前提でのみDB採番と一致する。既存行があるまま気付かず流すと
+  // ジャンルタグが全件ずれるが、それはSQL実行時までエラーにならず発覚しにくいため、
+  // INSERT本体より前に空チェックで止める。
+  // ----------------------------------------------------------------
+  out.push("-- ============================================================");
+  out.push("-- 前提チェック: M_GAME_KIND / M_GAME_GENRE が空であることを確認する");
+  out.push("-- ============================================================");
+  out.push("DO $$");
+  out.push("BEGIN");
+  out.push(`  IF EXISTS (SELECT 1 FROM public."M_GAME_KIND") OR EXISTS (SELECT 1 FROM public."M_GAME_GENRE") THEN`);
+  out.push(
+    `    RAISE EXCEPTION 'M_GAME_KIND または M_GAME_GENRE に既存データがあります。このSQLは空のマスタへの初回投入専用です。既存データへの追加投入には npm run seed:insert を使ってください。';`
+  );
+  out.push("  END IF;");
+  out.push("END $$;");
+  out.push("");
+
+  // ----------------------------------------------------------------
   // M_GAME_KIND
   // ----------------------------------------------------------------
   out.push("-- ============================================================");
@@ -80,7 +114,13 @@ function main() {
     out.push(`ON CONFLICT (game_kind_name) DO UPDATE SET game_kind_name_ja = EXCLUDED.game_kind_name_ja;`);
     out.push("");
   }
-  out.push(`SELECT setval(pg_get_serial_sequence('"M_GAME_KIND"', 'id'), ${mechanics.length});`);
+  // 前提チェックにより実行時点でマスタは空のはずだが、シーケンスの現在値が生成件数より
+  // 大きい可能性はゼロではない（例えば手動でシーケンスだけ進めていた場合）。既存の最大IDより
+  // 小さい値をsetvalでセットすると、以後の採番がその値から再開して主キー衝突を起こすため、
+  // GREATEST()で「現在のMAX(id)」と「今回の生成件数」の大きい方を必ず採用する。
+  out.push(
+    `SELECT setval(pg_get_serial_sequence('"M_GAME_KIND"', 'id'), GREATEST((SELECT COALESCE(MAX(id), 0) FROM public."M_GAME_KIND"), ${mechanics.length}));`
+  );
   out.push("");
 
   // ----------------------------------------------------------------
@@ -102,7 +142,10 @@ function main() {
     out.push(`ON CONFLICT (game_genre_name) DO NOTHING;`);
     out.push("");
   }
-  out.push(`SELECT setval(pg_get_serial_sequence('"M_GAME_GENRE"', 'id'), ${domains.length});`);
+  // 理由はM_GAME_KINDのsetvalと同じ（既存の最大IDより小さい値をセットすると主キー衝突を起こす）
+  out.push(
+    `SELECT setval(pg_get_serial_sequence('"M_GAME_GENRE"', 'id'), GREATEST((SELECT COALESCE(MAX(id), 0) FROM public."M_GAME_GENRE"), ${domains.length}));`
+  );
   out.push("");
 
   // ----------------------------------------------------------------
