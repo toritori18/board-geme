@@ -139,7 +139,11 @@ board-geme/
 | `npm run seed:submit` | バッチ処理のリクエスト送信（`scripts/submit-batch.ts`） |
 | `npm run seed:collect` | バッチ処理の結果取得（`scripts/collect-batch.ts`） |
 | `npm run seed:insert` | 取得データをDBへ投入（`scripts/insert-to-db.ts`） |
+| `npm run seed:extract-name-ja` | 日本語名が未取得のゲームを抽出し TSV に分割出力（`scripts/extract-name-ja.ts`） |
+| `npm run seed:verify-name-ja` | claude.ai 結果の行数・ID・順序を検証（`scripts/verify-name-ja.ts`） |
+| `npm run seed:merge-name-ja` | 複数ソースをマージして `batch-results.json` を再構築（`scripts/merge-name-ja.ts`） |
 | `npm run seed:generate-sql` | 投入用SQLの生成（`scripts/generate-sql.ts`） |
+| `npm run seed:split-sql` | `docs/sql/insert_transaction_data.sql` がサイズ超過時に INSERT 境界で複数ファイルに分割（`docs/sql/split/insert_transaction_data_partNN.sql`）。`--max-kb` で上限変更可能（既定500）（`scripts/split-sql.ts`） |
 
 ## サブエージェント
 

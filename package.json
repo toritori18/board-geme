@@ -11,7 +11,11 @@
     "seed:submit": "node --env-file=.env.local --import tsx/esm scripts/submit-batch.ts",
     "seed:collect": "node --env-file=.env.local --import tsx/esm scripts/collect-batch.ts",
     "seed:insert": "node --env-file=.env.local --import tsx/esm scripts/insert-to-db.ts",
-    "seed:generate-sql": "node --import tsx/esm scripts/generate-sql.ts"
+    "seed:extract-name-ja": "node --import tsx/esm scripts/extract-name-ja.ts",
+    "seed:verify-name-ja": "node --import tsx/esm scripts/verify-name-ja.ts",
+    "seed:merge-name-ja": "node --import tsx/esm scripts/merge-name-ja.ts",
+    "seed:generate-sql": "node --import tsx/esm scripts/generate-sql.ts",
+    "seed:split-sql": "node --import tsx/esm scripts/split-sql.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
