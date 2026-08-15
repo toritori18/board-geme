@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseCSV, type GameRecord } from "./lib/csv.ts";
+import { parseIntOrNull, parseNumberOrNull } from "./lib/parse.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -12,19 +13,6 @@ const supabase = createClient(
 );
 
 type DescriptionResult = { name_ja: string; short_description_ja: string };
-
-function parseNumber(value: string): number | null {
-  // replace(",", ".") だと最初の1個しか置換されないため、桁区切りの "," が
-  // 複数含まれる値（例: "1,234.5" 相当の表記揺れ）で2個目以降が残ってしまう。
-  // replaceAll() で全て置換する。
-  const n = parseFloat(value.replaceAll(",", "."));
-  return isNaN(n) ? null : n;
-}
-
-function parseIntOrNull(value: string): number | null {
-  const n = parseInt(value);
-  return isNaN(n) ? null : n;
-}
 
 // Mechanics を M_GAME_KIND に挿入
 async function insertGameKind(
@@ -115,9 +103,9 @@ async function insertGames(
         play_time: parseIntOrNull(g["Play Time"]),
         min_age: parseIntOrNull(g["Min Age"]),
         users_rated: parseIntOrNull(g["Users Rated"]),
-        rating_average: parseNumber(g["Rating Average"]),
+        rating_average: parseNumberOrNull(g["Rating Average"]),
         bgg_rank: parseIntOrNull(g["BGG Rank"]),
-        complexity_average: parseNumber(g["Complexity Average"]),
+        complexity_average: parseNumberOrNull(g["Complexity Average"]),
         // 長文説明は未生成のため NULL を入れる。短文の複製を入れると詳細ページの
         // 「ゲーム紹介」が一覧カードと同じ文になる（レビューの M-7）。
         description_ja: null,
