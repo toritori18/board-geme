@@ -296,7 +296,7 @@ export async function fetchGamesPage(params: {
     filters
   );
 
-  // ランキング・検索とも BoardGameGeek 公表の順位（bgg_rank 昇順）で並べる。
+  // ランキング・検索とも bgg_rank 昇順で並べる。
   // rating_average 降順では評価数30件台のゲームが上位を占め、「人気ランキング」として成立しない。
   // bgg_rank だけを並び替えキーにすると、同順位の行が複数あった場合にDB内部の並び順が
   // 不定でページ境界にまたがってゲームが重複・欠落しうる（実データ: 2026-08-11時点で
