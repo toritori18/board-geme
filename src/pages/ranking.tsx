@@ -468,7 +468,7 @@ export default function RankingPage({
             <div>
               <div className="mb-6">
                 <h1 className="text-2xl font-bold text-gray-900">ボードゲーム人気ランキング</h1>
-                <p className="text-sm text-gray-500 mt-1">BoardGameGeek 公表のランキング順</p>
+                <p className="text-sm text-gray-500 mt-1">ランキング順</p>
               </div>
 
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
@@ -520,9 +520,13 @@ export default function RankingPage({
               </div>
 
               <div className="space-y-3">
-                {games.map((game) => (
-                  // ページ内の連番ではなく BoardGameGeek 公表の実順位（bggRank）を表示する
-                  <GameCard key={game.id} game={game} rank={game.bggRank} />
+                {games.map((game, index) => (
+                  // bgg_rank 由来の絶対順位（bggRank）ではなく、絞り込み後の抽出結果内での
+                  // 通し連番を表示する。絞り込みをかけると bggRank は 1, 5, 23, 87…のように
+                  // 飛び飛びになり順位として意味を持たないため。並び順自体は bgg_rank 昇順
+                  // （fetchGamesPage 側）のまま変えず、ページをまたいでも連番が続くよう
+                  // ページ番号とページ内インデックスから算出する。
+                  <GameCard key={game.id} game={game} rank={(page - 1) * PAGE_SIZE + index + 1} />
                 ))}
               </div>
               {total > PAGE_SIZE && (
