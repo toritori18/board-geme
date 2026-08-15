@@ -25,23 +25,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseCSV } from "./lib/csv.ts";
+import { parseIntOrNull, parseNumberOrNull } from "./lib/parse.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 type DescriptionResult = { name_ja: string; short_description_ja: string };
-
-function parseNum(value: string): number | null {
-  // replace(",", ".") だと最初の1個しか置換されないため、"," が複数含まれる値で
-  // 2個目以降が残ってしまう（scripts/insert-to-db.ts の parseNumber() と同じ問題）。
-  // replaceAll() で全て置換する。
-  const n = parseFloat(value.replaceAll(",", "."));
-  return isNaN(n) ? null : n;
-}
-
-function parseInt2(value: string): number | null {
-  const n = parseInt(value, 10);
-  return isNaN(n) ? null : n;
-}
 
 function lit(value: string | number | null): string {
   if (value === null) return "NULL";
@@ -71,7 +59,7 @@ function main() {
 
   // id が数値にならない行（現状16件）は PRIMARY KEY が NULL になり INSERT できないため
   // T_GAME の出力対象から除外する。scripts/insert-to-db.ts の insertGames() と同じガード。
-  const validGames = games.filter((g) => parseInt2(g["ID"]) !== null);
+  const validGames = games.filter((g) => parseIntOrNull(g["ID"]) !== null);
 
   // メカニクス（ソート済み）→ ID割り当て。マスタの集計は id 列を使わないため、
   // scripts/insert-to-db.ts の insertGameKind() と同様に games 全体（id 無効行も含む）から
@@ -205,18 +193,18 @@ function main() {
       const sep = j < chunk.length - 1 ? "," : "";
       transactionOut.push(
         `  (` +
-        `${lit(parseInt2(g["ID"]))}, ` +
+        `${lit(parseIntOrNull(g["ID"]))}, ` +
         `${lit(g["Name"])}, ` +
         `${lit(desc.name_ja)}, ` +
-        `${lit(parseInt2(g["Year Published"]))}, ` +
-        `${lit(parseInt2(g["Min Players"]))}, ` +
-        `${lit(parseInt2(g["Max Players"]))}, ` +
-        `${lit(parseInt2(g["Play Time"]))}, ` +
-        `${lit(parseInt2(g["Min Age"]))}, ` +
-        `${lit(parseInt2(g["Users Rated"]))}, ` +
-        `${lit(parseNum(g["Rating Average"]))}, ` +
-        `${lit(parseInt2(g["BGG Rank"]))}, ` +
-        `${lit(parseNum(g["Complexity Average"]))}, ` +
+        `${lit(parseIntOrNull(g["Year Published"]))}, ` +
+        `${lit(parseIntOrNull(g["Min Players"]))}, ` +
+        `${lit(parseIntOrNull(g["Max Players"]))}, ` +
+        `${lit(parseIntOrNull(g["Play Time"]))}, ` +
+        `${lit(parseIntOrNull(g["Min Age"]))}, ` +
+        `${lit(parseIntOrNull(g["Users Rated"]))}, ` +
+        `${lit(parseNumberOrNull(g["Rating Average"]))}, ` +
+        `${lit(parseIntOrNull(g["BGG Rank"]))}, ` +
+        `${lit(parseNumberOrNull(g["Complexity Average"]))}, ` +
         // 長文説明は未生成のため NULL を出力する。短文の複製を出力すると詳細ページの
         // 「ゲーム紹介」が一覧カードと同じ文になる（レビューの M-7）。
         `${lit(null)}, ` +

@@ -18,6 +18,11 @@ const DEFAULT_MAX_KB = 500;
 // ヘッダーを足した後の実ファイルサイズが指定上限をほぼ超えないようにする。
 const HEADER_RESERVE_BYTES = 512;
 
+// ブロック同士を連結する際の区切り文字。出力時（groups.forEachのbody生成）とサイズ計算
+// （groupBlocks）の両方でこの定数を使うことで、区切りバイト数の見積もりが将来ずれないようにする。
+const BLOCK_SEPARATOR = "\n\n";
+const BLOCK_SEPARATOR_BYTES = Buffer.byteLength(BLOCK_SEPARATOR, "utf-8");
+
 type Block = {
   text: string;
   rowCount: number;
@@ -87,7 +92,8 @@ function splitIntoBlocks(lines: string[]): Block[] {
 }
 
 // ブロックを、指定バイト数を超えないように先頭から貪欲に詰めていく。1ブロック単体で
-// 上限を超える場合はそもそも分割できないため、そのブロックだけで1ファイルにする。
+// ヘッダー予約分を差し引いた実効上限（effectiveLimit）を超える場合はそもそも他のブロックと
+// 同じグループに詰められないため、そのブロックだけで1ファイルにする。
 function groupBlocks(blocks: Block[], maxBytes: number): { groups: Block[][]; oversizedCount: number } {
   const effectiveLimit = maxBytes - HEADER_RESERVE_BYTES;
   const groups: Block[][] = [];
@@ -96,7 +102,10 @@ function groupBlocks(blocks: Block[], maxBytes: number): { groups: Block[][]; ov
   let oversizedCount = 0;
 
   for (const block of blocks) {
-    if (block.byteLength > maxBytes) {
+    // 単独ブロックの超過判定も、グループ詰めと同じ effectiveLimit を基準にする。ここを
+    // maxBytes 基準にすると、effectiveLimit < サイズ ≤ maxBytes のブロックが警告なしで
+    // 単独ファイルになり、ヘッダーを足した実ファイルサイズが --max-kb をわずかに超える。
+    if (block.byteLength > effectiveLimit) {
       if (current.length > 0) {
         groups.push(current);
         current = [];
@@ -107,13 +116,17 @@ function groupBlocks(blocks: Block[], maxBytes: number): { groups: Block[][]; ov
       continue;
     }
 
-    if (current.length > 0 && currentBytes + block.byteLength > effectiveLimit) {
+    // 2ブロック目以降を同じグループに追加する場合、出力時に join(BLOCK_SEPARATOR) で挟まる
+    // 区切り分のバイト数も加算する（1ブロック目には区切りが付かない）。これを加算しないと
+    // 実際の出力サイズより currentBytes が小さく見積もられてしまう。
+    const separatorBytes = current.length > 0 ? BLOCK_SEPARATOR_BYTES : 0;
+    if (current.length > 0 && currentBytes + separatorBytes + block.byteLength > effectiveLimit) {
       groups.push(current);
       current = [];
       currentBytes = 0;
     }
+    currentBytes += (current.length > 0 ? BLOCK_SEPARATOR_BYTES : 0) + block.byteLength;
     current.push(block);
-    currentBytes += block.byteLength;
   }
   if (current.length > 0) groups.push(current);
 
@@ -167,7 +180,7 @@ function main() {
     const partIndex = idx + 1;
     const rowCount = group.reduce((sum, b) => sum + b.rowCount, 0);
     const header = buildPartHeader(path.basename(sourcePath), partIndex, totalParts, rowCount);
-    const body = group.map((b) => b.text).join("\n\n");
+    const body = group.map((b) => b.text).join(BLOCK_SEPARATOR);
     const fileContent = `${header}${body}\n`;
 
     const fileName = `${baseName}_part${String(partIndex).padStart(2, "0")}.sql`;
@@ -176,8 +189,11 @@ function main() {
   });
 
   if (oversizedCount > 0) {
+    const effectiveLimitKb = maxKb - HEADER_RESERVE_BYTES / 1024;
     console.warn(
-      `警告: 1ブロック単体で上限（${maxKb}KB）を超えるINSERTブロックが${oversizedCount}件ありました。分割できないため、単独ファイルとして出力しています。`
+      `警告: 1ブロック単体でヘッダー予約分を差し引いた実効上限（${effectiveLimitKb.toFixed(1)}KB、指定上限 ${maxKb}KB）を` +
+        `超えるINSERTブロックが${oversizedCount}件ありました。分割できないため単独ファイルとして出力していますが、` +
+        `ヘッダーを足した実ファイルサイズが --max-kb の指定値をわずかに超える可能性があります。`
     );
   }
 

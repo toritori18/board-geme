@@ -5,19 +5,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseCSV } from "./lib/csv.ts";
+import { JAPANESE_RE } from "./lib/name-ja-check.ts";
+import { parseIntOrNull } from "./lib/parse.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-type DescriptionResult = { name_ja: string; short_description_ja: string };
-
-// ひらがな・カタカナ・漢字のいずれかを含むかで日本語訳済みと判定する。
-// docs/sql/insert_transaction_data.sql 反映後の検証クエリ（ぁ-んァ-ヶ一-龠）と同じ範囲。
-const JAPANESE_RE = /[ぁ-んァ-ヶ一-龠]/;
-
-function parseIntOrNull(value: string): number | null {
-  const n = parseInt(value, 10);
-  return isNaN(n) ? null : n;
-}
+// name_ja_translated: name_ja が data/name-ja/result_*.tsv 由来（＝claude.ai での翻訳工程を
+// 通った）ことを表すフラグ。K2 / Q.E. / 1817 のようにラテン文字表記が正式名称のタイトルは
+// 翻訳しても JAPANESE_RE にマッチしないため、日本語文字の有無だけでは翻訳済みか判定できない。
+type DescriptionResult = { name_ja: string; short_description_ja: string; name_ja_translated?: boolean };
 
 // 出版年を出力用の文字列に変換する。0年出版のゲームは存在しないため「不明」として空文字にする。
 function formatYear(value: string): string {
@@ -41,19 +37,30 @@ function main() {
     if (parseIntOrNull(g["ID"]) === null) continue;
 
     const existing = batchResults[g["ID"]];
-    const alreadyTranslated = existing !== undefined && JAPANESE_RE.test(existing.name_ja);
+    // name_ja_translated フラグを優先し、無い場合（1回目バッチ由来でフラグが付いていない
+    // 既存データ）は後方互換として JAPANESE_RE のフォールバック判定を使う。
+    const alreadyTranslated =
+      existing !== undefined && (existing.name_ja_translated === true || JAPANESE_RE.test(existing.name_ja));
     if (alreadyTranslated) continue;
 
     targets.push({ id: g["ID"], name: g["Name"], year: formatYear(g["Year Published"]) });
   }
 
-  // data/name-ja/*.tsv を作り直す前に既存分を削除する。CSV + batch-results.json という
-  // 権威あるソースから毎回作り直す方針のため、古い分割結果を残さない。
-  // 注意: names_*.tsv だけでなく result_*.tsv（claude.aiからの受領済み翻訳）も対象になる。
-  // PROMPT.md は拡張子が .md のためこの削除の対象外。
+  // data/name-ja/names_*.tsv を作り直す前に既存分を削除する。CSV + batch-results.json
+  // という権威あるソースから毎回作り直す方針のため、古い分割結果を残さない（names_*.tsv は
+  // このスクリプトが再生成できるため削除して問題ない）。
+  // result_*.tsv（claude.aiから手作業で回収した翻訳）は削除対象に含めない。data/ は
+  // .gitignore 対象でgit履歴からも戻せず、スクリプトでの再生成もできない手作業の成果物
+  // であり、誤って削除すると復元不能になるため。
+  const namesFileRe = /^names_\d+\.tsv$/;
   if (fs.existsSync(outDir)) {
-    for (const file of fs.readdirSync(outDir)) {
-      if (file.endsWith(".tsv")) fs.unlinkSync(path.join(outDir, file));
+    const existingFiles = fs.readdirSync(outDir);
+    for (const file of existingFiles) {
+      if (namesFileRe.test(file)) fs.unlinkSync(path.join(outDir, file));
+    }
+    const keptResultCount = existingFiles.filter((f) => /^result_\d+\.tsv$/.test(f)).length;
+    if (keptResultCount > 0) {
+      console.log(`既存の result_*.tsv ${keptResultCount}ファイルは保持しました。`);
     }
   } else {
     fs.mkdirSync(outDir, { recursive: true });
