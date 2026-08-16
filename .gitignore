@@ -27,6 +27,10 @@ docs/sql/
 # 追跡対象外になるため、CI の verify-docs.ps1 によるリンク検査は掛からない。
 docs/code-review-*.md
 
+# 開発の節目に作成するふりかえりメモ。個人の作業記録であり、版管理せず手元に置く。
+# 追跡対象外になるため、CI の verify-docs.ps1 によるリンク検査は掛からない。
+docs/retrospective-*.md
+
 # Claude Code 個人設定（チーム共有しない）
 .claude/settings.local.json
 # Claude Code フック・コマンドが生成する一時ファイル

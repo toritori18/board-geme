@@ -53,12 +53,14 @@ board-geme/
 ├── .claude/                 # Claude Code設定
 │   ├── settings.json        # 権限・フック設定
 │   ├── factcheck.md         # ハルシネーション防止チェックリスト
-│   ├── agents/               # 専門エージェント（coder / code-reviewer / readme-syncer）
+│   ├── agents/               # 専門エージェント（coder / code-reviewer / readme-syncer / retrospective-writer）
 │   ├── commands/              # カスタムスラッシュコマンド（.md + 実行スクリプト）
 │   │   ├── verify-docs.ps1     # ドキュメント参照先検査（共有スクリプト）
 │   │   ├── git/
 │   │   ├── server/
 │   │   └── db/
+│   ├── skills/                # Agent Skills
+│   │   └── retrospective/      # プロジェクトの振り返り作成
 │   └── hooks/                 # git hooks・PreToolUse等のフックスクリプト
 ├── src/                     # ソースコード
 │   ├── components/          # UIコンポーネント
@@ -154,6 +156,15 @@ board-geme/
 | `coder` | コンポーネント・関数・ロジックの新規実装や修正。実装前に `docs/contributing.md`・`docs/tech-stack.md`・`.claude/factcheck.md`・`.editorconfig` を読み、パッケージ・API の実在確認を行う | Read, Write, Edit, Glob, Grep, Bash |
 | `code-reviewer` | 実装後・コミット前のレビュー。`docs/contributing.md` の規約と `.claude/factcheck.md` に照らしてチェックする | Read, Grep, Glob |
 | `readme-syncer` | README.md と実体（コマンド・エージェント・npm スクリプト・ディレクトリ構成）の乖離を検出・修正。リポジトリ全体を読み取り、README.md のみを編集する | Read, Edit, Glob, Grep, Bash |
+| `retrospective-writer` | プロジェクトの振り返り報告書（`docs/retrospective-<YYYY-MM-DD>.md`）を作成。git 履歴・ドキュメント・メモリから事実を収集し、技術が分かる経営者に向けた「成果 / 工夫した点 / 改善したい点 / 学んだこと」の4見出しでまとめる。開発の節目（大きな機能の完了後・PR マージ後・リリース後）や、ユーザーが振り返りを依頼したときに使用 | Read, Write, Glob, Grep, Bash, PowerShell |
+
+## Agent Skills
+
+`.claude/skills/` に定義された専門スキルです。詳細な手順書として機能し、主にサブエージェント（`retrospective-writer`）にプリロードされます。エージェント経由で呼び出される場合はエージェント側のツール一覧が適用されます。
+
+| 名前 | 役割 | 想定される用途 |
+|---|---|---|
+| `retrospective` | プロジェクトの振り返り報告書（`docs/retrospective-<YYYY-MM-DD>.md`）を作成する手順書。git 履歴・ドキュメント・メモリから事実を収集し、技術が分かる経営者に向けた「成果 / 工夫した点 / 改善したい点 / 学んだこと」の4見出しでまとめる（出力は `.gitignore` で追跡対象外）。既定の対象範囲はプロジェクト全体で、引数で特定のPR・期間・ブランチに絞ることもできる | `retrospective-writer` エージェントにプリロードされ、技術が分かる経営者向けの振り返り報告書作成時に使用 |
 
 ## 開発ルール
 
