@@ -13,13 +13,13 @@ scripts/batch-ids.json
 data/batch-results.json
 data/mechanics-translations.json
 data/test-output.json
-# docs/sql/ は data/ から生成した巨大な INSERT ダンプ（計約 9.8MB）を含むため、
-# フォルダごと追跡対象外にする。スキーマ定義（DDL）も追跡しない。
-# 以前は DDL だけを「docs/sql/*」＋「!」で再包含していたが、GitHub 上に
-# docs/sql/ を出さない方針に変更した（DDL は 2026-08-11 に追跡対象から外した）。
-# そのため、クローン直後は docs/sql/ 配下に何も存在しない。DB を構築するには
-# 既存メンバーから DDL を受け取る必要がある。
-docs/sql/
+# docs/sql/ は DDL（create_*.sql）のみ追跡する。テーブル・関数の定義が無いと
+# クローン直後に DB を構築できないため、スキーマ定義は版管理する。
+# 一方、data/ から生成した INSERT ダンプ（計約 9.8MB）は追跡しない。
+# トランザクションデータは docs/sql/transaction/ に隔離している。
+docs/sql/transaction/
+docs/sql/insert_*.sql
+docs/sql/update_*.sql
 
 # コードレビュー結果の記録。指摘の解消をもって役目を終える作業用メモであり、
 # 版管理せず手元に置く（過去分の docs/code-review-2026-08-09.md は
@@ -34,5 +34,8 @@ docs/retrospective-*.md
 # Claude Code 個人設定（チーム共有しない）
 .claude/settings.local.json
 # Claude Code フック・コマンドが生成する一時ファイル
-.claude/dev-server*.log
 .claude/.stop-check-cache
+
+# 開発サーバー（/server:start）の実行ログ。手元の実行結果であり版管理しない。
+# ディレクトリごと追跡対象外にするため、クローン直後は存在しない（起動時に自動生成される）。
+logs/

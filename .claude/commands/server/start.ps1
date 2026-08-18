@@ -31,9 +31,14 @@ if ($conn) {
     }
 }
 
-# ログの出力先（.gitignore の .claude/dev-server*.log で除外済み）
-$log = Join-Path $RepoRoot ".claude\dev-server.log"
-$errorLog = Join-Path $RepoRoot ".claude\dev-server.err.log"
+# ログの出力先（.gitignore の logs/ で除外済み）。.claude/ は版管理する設定の置き場なので、
+# 実行時の生成物であるログは logs/ に分ける
+$logDir = Join-Path $RepoRoot "logs"
+# Start-Process のリダイレクト先は、ディレクトリが無いと起動そのものが失敗するため先に作る
+New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+
+$log = Join-Path $logDir "dev-server.log"
+$errorLog = Join-Path $logDir "dev-server.err.log"
 Remove-Item -LiteralPath $log, $errorLog -Force -ErrorAction SilentlyContinue
 
 # バックグラウンドで起動する（フォアグラウンド実行だと呼び出し元のシェルがブロックされるため）

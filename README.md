@@ -53,6 +53,7 @@ board-geme/
 ├── .claude/                 # Claude Code設定
 │   ├── settings.json        # 権限・フック設定
 │   ├── factcheck.md         # ハルシネーション防止チェックリスト
+│   ├── session-check.ps1     # SessionStart フック（README・技術スタック等の未設定を検出して通知）
 │   ├── agents/               # 専門エージェント（coder / code-reviewer / readme-syncer / retrospective-writer）
 │   ├── commands/              # カスタムスラッシュコマンド（.md + 実行スクリプト）
 │   │   ├── verify-docs.ps1     # ドキュメント参照先検査（共有スクリプト）
@@ -78,9 +79,11 @@ board-geme/
 │   ├── development-setup.md  # セットアップガイド
 │   ├── contributing.md        # コントリビュートガイド
 │   ├── powershell-contributing.md  # PowerShell（`.ps1`）のコーディング規約
-│   └── sql/                    # スキーマDDL・データ投入SQL（Supabase SQL Editorで実行 / `.gitignore` で追跡対象外）
+│   └── sql/                    # スキーマDDL（Supabase SQL Editorで実行、git 追跡対象）・データ投入SQL（追跡対象外。詳細は `.gitignore` のコメント参照）
+│       └── transaction/         # トランザクションデータの投入SQL（`.gitignore` で追跡対象外）
 ├── scripts/                 # データ投入・バッチ処理スクリプト
 │   └── lib/                 # ユーティリティモジュール
+├── logs/                    # `/server:start` の実行ログ（`.gitignore` で追跡対象外 / 起動時に自動生成）
 └── tests/                   # テスト
 ```
 
@@ -95,7 +98,7 @@ board-geme/
 | コマンド | 概要 |
 |---|---|
 | `/setup` | 初回セットアップ（`setup.ps1` を実行）。完了後に `.env.local` の設定と `/git:init` を案内します |
-| `/server:start` | 開発サーバーをバックグラウンドで起動（ポート3000の既存プロセスを停止してから起動。ログ: `.claude/dev-server.log`） |
+| `/server:start` | 開発サーバーをバックグラウンドで起動（ポート3000の既存プロセスを停止してから起動。ログ: `logs/dev-server.log`・`logs/dev-server.err.log`） |
 | `/server:stop` | 開発サーバーを停止 |
 
 #### 検査・ビルド
@@ -145,7 +148,7 @@ board-geme/
 | `npm run seed:verify-name-ja` | claude.ai 結果の行数・ID・順序を検証（`scripts/verify-name-ja.ts`） |
 | `npm run seed:merge-name-ja` | 複数ソースをマージして `batch-results.json` を再構築（`scripts/merge-name-ja.ts`） |
 | `npm run seed:generate-sql` | 投入用SQLの生成（`scripts/generate-sql.ts`） |
-| `npm run seed:split-sql` | `docs/sql/insert_transaction_data.sql` がサイズ超過時に INSERT 境界で複数ファイルに分割（`docs/sql/split/insert_transaction_data_partNN.sql`）。`--max-kb` で上限変更可能（既定500）（`scripts/split-sql.ts`） |
+| `npm run seed:split-sql` | `docs/sql/transaction/insert_transaction_data.sql` がサイズ超過時に INSERT 境界で複数ファイルに分割（`docs/sql/transaction/split/insert_transaction_data_partNN.sql`）。`--max-kb` で上限変更可能（既定500）（`scripts/split-sql.ts`） |
 
 ## サブエージェント
 
@@ -160,11 +163,11 @@ board-geme/
 
 ## Agent Skills
 
-`.claude/skills/` に定義された専門スキルです。詳細な手順書として機能し、主にサブエージェント（`retrospective-writer`）にプリロードされます。エージェント経由で呼び出される場合はエージェント側のツール一覧が適用されます。
+`.claude/skills/` に定義された専門スキルです。詳細な手順書として機能し、主にサブエージェント（`retrospective-writer`）にプリロードされます。
 
 | 名前 | 役割 | 想定される用途 |
 |---|---|---|
-| `retrospective` | プロジェクトの振り返り報告書（`docs/retrospective-<YYYY-MM-DD>.md`）を作成する手順書。git 履歴・ドキュメント・メモリから事実を収集し、技術が分かる経営者に向けた「成果 / 工夫した点 / 改善したい点 / 学んだこと」の4見出しでまとめる（出力は `.gitignore` で追跡対象外）。既定の対象範囲はプロジェクト全体で、引数で特定のPR・期間・ブランチに絞ることもできる | `retrospective-writer` エージェントにプリロードされ、技術が分かる経営者向けの振り返り報告書作成時に使用 |
+| `retrospective` | プロジェクトの振り返り報告書（`docs/retrospective-<YYYY-MM-DD>.md`）を作成する手順書。実行前に README.md の同期状態を確認し、必要に応じて `readme-syncer` エージェントを実行してから進める。その後、git 履歴・ドキュメント・メモリから事実を収集し、技術が分かる経営者に向けた「成果 / 工夫した点 / 改善したい点 / 学んだこと」の4見出しでまとめる（出力は `.gitignore` で追跡対象外）。既定の対象範囲はプロジェクト全体で、引数で特定のPR・期間・ブランチに絞ることもできる | `retrospective-writer` エージェントにプリロードされ、技術が分かる経営者向けの振り返り報告書作成時に使用 |
 
 ## 開発ルール
 
