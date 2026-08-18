@@ -2,7 +2,7 @@
 
 現状 Supabase CLI によるマイグレーション管理は未導入です。スキーマ変更は `docs/sql/` 配下に SQL ファイルを追加し、Supabase ダッシュボードの SQL Editor で手動実行する運用です（`docs/sql/create_game_tables.sql` 等を参照）。
 
-> `docs/sql/` は `.gitignore` でフォルダごと追跡対象外です（スキーマ定義の DDL も、`data/` から生成した INSERT ダンプ `insert_*.sql` も含む）。クローン直後には何も存在せず、ここに追加した SQL は GitHub にも上がりません。**スキーマ変更を版管理・レビュー対象にしたい場合は、追跡対象のディレクトリに置くか `.gitignore` を見直してください。**
+> `docs/sql/` の **DDL（`create_*.sql`）は追跡対象**のため、追加したスキーマ変更はそのまま版管理・レビュー対象になります。一方、`data/` から生成した INSERT ダンプ（`insert_*.sql`・`update_*.sql`・`transaction/` 配下）は `.gitignore` で除外されるため GitHub には上がりません。**除外されるのは `insert_*` / `update_*` / `transaction/` の3つだけで、それ以外の名前（`create_*`・`alter_*` など）は追跡されます。** マイグレーション用 SQL にこの3つの接頭辞を使うと版管理から漏れるので避けてください。
 
 ## 手順
 

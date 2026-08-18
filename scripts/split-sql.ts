@@ -1,4 +1,4 @@
-// docs/sql/insert_transaction_data.sql（generate-sql.tsが生成する41個のINSERTブロック、
+// docs/sql/transaction/insert_transaction_data.sql（generate-sql.tsが生成する41個のINSERTブロック、
 // 5.77MB）をSupabase SQL Editorに貼れるサイズへ分割する。SQL Editorは
 // 「Query is too large to be run via the SQL Editor」というサイズ上限エラーを返すため、
 // 1つのINSERT文（INSERT INTO 〜 ON CONFLICT ...;）を絶対に途中で切らず、指定バイト数
@@ -147,8 +147,8 @@ function main() {
   const maxKb = parseMaxKb(process.argv.slice(2));
   const maxBytes = maxKb * 1024;
 
-  const sourcePath = path.join(__dirname, "../docs/sql/insert_transaction_data.sql");
-  const outDir = path.join(__dirname, "../docs/sql/split");
+  const sourcePath = path.join(__dirname, "../docs/sql/transaction/insert_transaction_data.sql");
+  const outDir = path.join(__dirname, "../docs/sql/transaction/split");
 
   if (!fs.existsSync(sourcePath)) {
     console.error(`${sourcePath} が見つかりません。先に npm run seed:generate-sql を実行してください。`);

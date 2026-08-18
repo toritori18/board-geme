@@ -1,7 +1,6 @@
 ---
 name: retrospective
 description: プロジェクトの振り返り報告書を作成する。git 履歴・ドキュメント・メモリから事実を収集し、「成果 / 工夫した点 / 改善したい点 / 学んだこと」の4見出しで docs/retrospective-<YYYY-MM-DD>.md にまとめる。読み手は技術が分かる経営者。既定の対象範囲はプロジェクト全体（最初のコミットから HEAD まで）で、引数で特定のPR・期間・ブランチに絞ることもできる。ユーザーが「振り返り」「ふりかえり」「学んだことをまとめて」「今回の成果をまとめて」と依頼したとき、また開発の節目（大きな機能の完了後・PR マージ後・リリース後）に使う。出力は .gitignore で追跡対象外。
-allowed-tools: PowerShell(git show*) PowerShell(git check-ignore*)
 ---
 
 # プロジェクト振り返り報告書
@@ -15,6 +14,26 @@ allowed-tools: PowerShell(git show*) PowerShell(git check-ignore*)
 - 読み手が知りたいのは「何を作ったか」ではなく「**何が良くなり、何が残っていて、次に何を決める必要があるか**」
 - 実装の詳細を列挙しない。判断の分かれ目と、その結果に絞る
 
+## 0. README.md の同期を確認する
+
+README.md は §2 の情報源であり、実体とずれていると誤りをそのまま報告書に引き継ぐ。**事実収集の前に**、同期が必要かを次の2つで判定する。
+
+```powershell
+# (1) README.md の最終更新以降に、構成に関わるパスが変わったコミットがあるか
+$base = git log -1 --format=%H -- README.md
+git log --oneline "$base..HEAD" -- .claude/commands .claude/agents .claude/skills package.json
+
+# (2) 未コミットの構成変更があるか
+git status --short -- .claude/commands .claude/agents .claude/skills package.json README.md
+```
+
+**どちらかに出力があれば `readme-syncer` エージェントを実行してから §1 へ進む。** 両方とも空なら同期は省略してよい（構成が変わっていないのにエージェントを走らせても、README は変わらない）。
+
+制約が2つある。いずれも判定を過信しないための注意点であり、**迷ったら実行する側に倒す**。
+
+- **呼び出し元がメイン会話のときだけ実行できる。** `retrospective-writer` は Agent ツールを持たず自分で呼べないため、委任前に呼び出し元が済ませる
+- **ディレクトリ構成の変更は取りこぼす。** git はディレクトリ単体を追跡せず、`.gitignore` 対象の新設ディレクトリ（`logs/` など）は (1)(2) のどちらにも現れない。README のツリー図に関わる変更に心当たりがあれば、判定結果によらず実行する
+
 ## 1. 対象範囲を確定する
 
 **既定はプロジェクト全体**（最初のコミットから HEAD まで）。引数（`$ARGUMENTS`）で範囲が指定された場合のみ、それに絞る（例: `PR#13` / `直近1週間` / `feature/xxx ブランチ`）。
@@ -25,6 +44,8 @@ allowed-tools: PowerShell(git show*) PowerShell(git check-ignore*)
 
 **コミット本文（`%b`）まで読む。** このプロジェクトは本文に判断理由・背景・実測値が書かれており、ここが「工夫した点」「学んだこと」の主要な情報源になる。件名（`%s`）だけでは判断の背景が落ちる。
 
+ただし**git はあくまで情報源であり、報告書にはコミットハッシュもリンクも書かない**（[template.md](template.md) の「書き方の指針」）。裏取りに使い、結論だけを書く。
+
 ```powershell
 git log --reverse --format="%ad %h %s" --date=short   # 全体像
 git log -1 --format="%s%n%b" <hash>                    # 個別の意図
@@ -33,13 +54,15 @@ git show <hash> -- <path>                              # 実際の差分
 
 補助ソース:
 
-- `README.md` / `docs/` — 現在の機能・構成・運用ルール。**README.md は `readme-syncer` エージェントで実体に同期済みであることが前提**（ずれていると誤りをそのまま引き継ぐ）。同期済みか不明なら記述を鵜呑みにせず実体で裏を取る
+- `README.md` / `docs/` — 現在の機能・構成・運用ルール。同期は §0 で確認済みの前提。それでも記述を鵜呑みにせず、報告書に載せる事実は実体で裏を取る
 - Claude Code のメモリ（`~/.claude/projects/c--data-samrai-board-geme/memory/`）— 運用方針・過去の実測記録
 - 削除済みのレビュー記録 — `docs/code-review-*.md` は対応完了後に削除する運用のため git 履歴にのみ残る: `git show <削除コミット>^:docs/code-review-YYYY-MM-DD.md`
 
 ## 3. 執筆する
 
-[template.md](template.md) の骨子と各見出しの書き分けに従う。
+[template.md](template.md) の骨子・各見出しの書き分け・**分量の上限**に従う。
+
+網羅より簡潔さを優先する。集めた事実を全部載せない。読み手の判断に効かない事実は、確認できていても書かない。
 
 ## 4. 書き出す
 

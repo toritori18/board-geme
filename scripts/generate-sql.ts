@@ -13,7 +13,7 @@
 // insert_master_data.sql の先頭にマスタが空であることを実行時に検証するガード
 // （下記 DO $$ ブロック）を出力する。
 //
-// docs/sql/insert_transaction_data.sql（T_GAME）は既存DBへの再投入が可能である。既存行は
+// docs/sql/transaction/insert_transaction_data.sql（T_GAME）は既存DBへの再投入が可能である。既存行は
 // `ON CONFLICT (id) DO UPDATE` で game_name_ja / short_description_ja のみを更新し、
 // game_type_id / game_domain_id を含む他のカラムには触れない。そのため上記のローカルID
 // 採番とDB採番のずれは、既存行の更新パス（＝現状ほぼ全件）では問題にならない。ただし、
@@ -50,7 +50,7 @@ function main() {
   const batchPath = path.join(__dirname, "../data/batch-results.json");
   const transPath = path.join(__dirname, "../data/mechanics-translations.json");
   const masterOutPath = path.join(__dirname, "../docs/sql/insert_master_data.sql");
-  const transactionOutPath = path.join(__dirname, "../docs/sql/insert_transaction_data.sql");
+  const transactionOutPath = path.join(__dirname, "../docs/sql/transaction/insert_transaction_data.sql");
 
   console.log("ファイル読み込み中...");
   const games = parseCSV(csvPath);
@@ -75,8 +75,10 @@ function main() {
   const domains = Array.from(domainsSet).sort();
   const domainsId: Record<string, number> = Object.fromEntries(domains.map((d, i) => [d, i + 1]));
 
-  // docs/sql/ はDDLごと.gitignore対象のため、クローン直後は存在しない可能性がある。
+  // docs/sql/insert_master_data.sql と docs/sql/transaction/ は .gitignore 対象（DDL の
+  // create_*.sql のみ追跡）のため、クローン直後はディレクトリごと存在しない可能性がある。
   fs.mkdirSync(path.dirname(masterOutPath), { recursive: true });
+  fs.mkdirSync(path.dirname(transactionOutPath), { recursive: true });
 
   // ============================================================
   // insert_master_data.sql: M_GAME_KIND / M_GAME_GENRE（初回投入専用）
