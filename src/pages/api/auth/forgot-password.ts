@@ -22,6 +22,15 @@ export default async function handler(
     return res.status(405).json({ success: false, message: "Method not allowed" });
   }
 
+  // パスワードリセットメール送信を一時停止中。メール送信数の上限（メール配信の割り当て超過）に
+  // 達したため、リクエストボディを読む前に打ち切る。
+  // 再開する際は、上限が解消され次第この return を外すこと。
+  return res.status(403).json({
+    success: false,
+    message: "現在、パスワードリセットを受け付けていません。",
+  });
+
+  // eslint-disable-next-line no-unreachable -- 再開時に戻せるよう既存ロジックを残している
   const { email } = req.body as { email: string };
 
   if (!email) {
