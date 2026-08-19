@@ -6,7 +6,9 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [loading, setLoading] = useState(false);
+  // 常時 disabled のためボタンの表示に loading を使わなくなった。setLoading は既存の送信処理で
+  // 引き続き使うため、読み取らない値だけ配列分割代入で読み捨てて未使用変数警告を避ける
+  const [, setLoading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -78,12 +80,13 @@ export default function ForgotPasswordPage() {
                 <p className="text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg">{success}</p>
               )}
 
+              {/* パスワードリセット停止中 */}
               <button
                 type="submit"
-                disabled={loading || !!success}
+                disabled={true}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-semibold py-2.5 rounded-lg transition text-sm"
               >
-                {loading ? "送信中..." : "リセットメールを送信"}
+                現在パスワードリセットを受け付けていません
               </button>
             </form>
 
