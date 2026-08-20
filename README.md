@@ -8,6 +8,17 @@
 - ランキング順の表示
 - ユーザー認証（ログイン・新規登録）
 
+## 本番環境
+
+| 項目 | 値 |
+|---|---|
+| 本番 URL | https://board-geme-toritori18s-projects.vercel.app |
+| デプロイ | `main` へのマージで Vercel が自動デプロイ |
+
+> Vercel のプロジェクト名が `board-geme` であるのに対し、割り当てられているドメインは `board-geme-toritori18s-projects.vercel.app` です（`board-geme.vercel.app` はこのプロジェクトのものではなく 404 になります）。ドメインは Vercel ダッシュボードの **Settings → Environments → Production** で確認できます。
+
+デプロイ手順とデプロイ前チェックリストは [.claude/commands/deploy.md](.claude/commands/deploy.md) を参照してください。
+
 ## 技術スタック
 
 | 役割 | 技術 |
