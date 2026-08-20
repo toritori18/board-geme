@@ -1,56 +1,28 @@
--- 認証エンドポイントのレート制限用テーブル・関数の作成 + RLS の有効化
--- Supabase の SQL Editor で実行してください
---
--- ホスティングは Vercel（サーバーレス）であり、インスタンスごとにメモリが
--- 独立しているため、インメモリの Map ではレート制限が実効性を持たない。
--- このテーブルと RPC 関数（consume_auth_attempt / reset_auth_attempt）に
--- カウンタを一元管理させ、src/utils/rate-limit.ts からのみ呼び出す。
---
--- CREATE TABLE IF NOT EXISTS・CREATE OR REPLACE FUNCTION・
--- ALTER TABLE ENABLE ROW LEVEL SECURITY はいずれも冪等な操作であり、
--- このファイルは何度実行しても安全である
--- （REVOKE も、対象の権限が既に無い場合は NOTICE が出るだけでエラーにはならない）。
+-- 認証エンドポイントのレート制限用テーブル・関数 + RLS。Supabase の SQL Editor で実行する。
+-- Vercel（サーバーレス）はインスタンスごとにメモリが独立するためインメモリの Map では
+-- レート制限が効かない。カウンタを DB に一元化し、src/utils/rate-limit.ts からのみ呼び出す。
+-- 各文は冪等なので何度実行しても安全（REVOKE も対象権限が無ければ NOTICE が出るだけ）。
 
--- T_AUTH_ATTEMPT: ログイン・パスワードリセットの試行回数カウンタ
--- attempt_key はエンドポイント種別・キー種別（ip/email）・値を連結した識別子
--- （例: "login:ip:203.0.113.1"）。メールアドレスは平文で保存せず、
--- アプリ側（src/utils/rate-limit.ts）で小文字化のうえ SHA-256 ハッシュ化してから
--- 渡す。このテーブルに平文のメールアドレス一覧を溜めないための措置。
+-- T_AUTH_ATTEMPT: ログイン・パスワードリセットの試行回数カウンタ。
+-- attempt_key の例は "login:ip:203.0.113.1"。平文のメールアドレスを溜めないよう、
+-- アプリ側で小文字化のうえ SHA-256 ハッシュ化した値を渡す。
 CREATE TABLE IF NOT EXISTS public."T_AUTH_ATTEMPT" (
   attempt_key   TEXT        PRIMARY KEY,
   window_start  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   attempt_count INTEGER     NOT NULL DEFAULT 0
 );
 
--- ============================================================
--- RLS（Row Level Security）の有効化
--- ============================================================
-
--- 背景:
--- NEXT_PUBLIC_SUPABASE_ANON_KEY はクライアントバンドルに含まれる公開情報であり、
--- RLS が無効な状態では anon キーだけでこのテーブルを select / update できてしまう。
--- RLS を有効化し、anon キーからの到達を塞ぐ（create_game_tables.sql と同じ方針）。
--- なお Supabase の SQL Editor で作成したテーブルは RLS が自動有効化されない。
-
--- 意図的にポリシーは1つも作成しない（create_game_tables.sql と同じ方針）。
--- アプリからのアクセスは下記の RPC 関数経由のみであり、その呼び出しは
--- service role クライアント（src/utils/supabase-admin.ts）からのみ行う。
--- service role は RLS を常にバイパスするため、ポリシー未作成のままで機能する。
+-- === RLS の有効化 ===
+-- anon キーはクライアントバンドルに含まれる公開情報のため、RLS 無効だと素通しになる。
+-- Supabase の SQL Editor で作成したテーブルは RLS が自動有効化されない点に注意。
+-- ポリシーは意図的に作成しない。アクセスは下記 RPC 経由のみで、呼び出すのは service role
+-- クライアント（src/utils/supabase-admin.ts）であり、service role は常に RLS をバイパスする。
 ALTER TABLE public."T_AUTH_ATTEMPT" ENABLE ROW LEVEL SECURITY;
 
--- ============================================================
--- consume_auth_attempt: 試行回数を1つ消費し、上限判定を返す
--- ============================================================
---
--- アプリ側で read → 判定 → write の3段階に分けると、ほぼ同時に届いた複数
--- リクエストが同じカウント値を読み、どちらも「まだ上限未満」と判定して
--- 両方通してしまう競合が起きる。INSERT ... ON CONFLICT DO UPDATE で
--- 読み取りと更新を1文にまとめることで、行ロックにより同時実行でも
--- 直列に処理されるようにする。
---
--- 窓（window_start から p_window_seconds 秒間）が期限切れであれば
--- window_start を今に切り直し、カウントを1から数え直す。
--- 期限内であればカウントをインクリメントするだけに留める。
+-- === consume_auth_attempt: 試行回数を1つ消費し、上限判定を返す ===
+-- read → 判定 → write に分けると、同時到着したリクエストが同じ値を読んで両方通る競合が起きる。
+-- INSERT ... ON CONFLICT DO UPDATE で1文にまとめ、行ロックにより直列化する。
+-- 窓（window_start から p_window_seconds 秒）が期限切れなら切り直して1から数え直す。
 CREATE OR REPLACE FUNCTION public.consume_auth_attempt(
   p_key TEXT,
   p_limit INTEGER,
@@ -89,34 +61,20 @@ BEGIN
 END;
 $$;
 
--- PostgreSQL は新規関数の EXECUTE 権限を既定で PUBLIC に与える。
--- そのままだと anon キーからも RPC を叩けてしまい、カウンタを故意に消費して
--- 他人（あるいは無関係なIP）をロックアウトする攻撃が成立するため、
--- PUBLIC・anon・authenticated から明示的に剥奪する。
---
--- 剥奪した直後に service_role へ明示的に GRANT する。
--- 既存の Supabase プロジェクトでは public スキーマの新規関数に対して
--- anon / authenticated / service_role へ EXECUTE が既定で自動付与されるが
--- （https://supabase.com/docs/guides/api/securing-your-api）、
--- Supabase はこの自動付与を廃止する方向に変更しており、2026年5月30日以降に
--- 作成される新規プロジェクトでは opt-out が既定になる
--- （https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically）。
--- 後者の環境では service_role への明示付与が無く、EXECUTE は PUBLIC 経由でしか
--- 得られていないため、REVOKE ... FROM PUBLIC だけを実行するとアプリ自身
--- （service role クライアント経由の呼び出し）まで締め出してしまう。
--- しかも src/utils/rate-limit.ts の呼び出し側は RPC 失敗時に fail-open
--- （通す）設計のため、この締め出しはエラーにならず、レート制限が無音のまま
--- 効かなくなるだけという最悪の壊れ方をする。既定の権限付与に依存せず、
--- どちらの環境でも成立するよう明示的に GRANT しておく。
+-- PostgreSQL は新規関数の EXECUTE を既定で PUBLIC に与えるため、そのままだと anon キーから
+-- RPC を叩いてカウンタを故意に消費し、他人をロックアウトできてしまう。よって剥奪する。
+-- 同時に service_role へ明示 GRANT する。Supabase は新規関数への自動付与を廃止する方向で、
+-- 2026-05-30 以降に作成される新規プロジェクトでは opt-out が既定になる。その環境では
+-- EXECUTE を PUBLIC 経由でしか得ておらず、REVOKE だけを実行するとアプリ自身が締め出される。
+-- しかも rate-limit.ts は RPC 失敗時に fail-open のため、レート制限が無音で効かなくなる。
+-- https://supabase.com/docs/guides/api/securing-your-api
+-- https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically
 REVOKE EXECUTE ON FUNCTION public.consume_auth_attempt(TEXT, INTEGER, INTEGER) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.consume_auth_attempt(TEXT, INTEGER, INTEGER) TO service_role;
 
--- ============================================================
--- reset_auth_attempt: カウンタをリセットする
--- ============================================================
---
--- ログイン成功時に呼び出す。打ち間違いが数回続いた後に正しいパスワードで
--- ログインできた正規ユーザーが、その後の別の試行で締め出されないようにするため。
+-- === reset_auth_attempt: カウンタをリセットする ===
+-- ログイン成功時に呼ぶ。打ち間違いが数回続いた正規ユーザーが、その後の試行で
+-- 締め出されないようにするため。
 CREATE OR REPLACE FUNCTION public.reset_auth_attempt(p_key TEXT)
 RETURNS VOID
 LANGUAGE sql
@@ -124,17 +82,11 @@ AS $$
   DELETE FROM public."T_AUTH_ATTEMPT" WHERE attempt_key = p_key;
 $$;
 
--- consume_auth_attempt と同じ理由（上記コメント参照）で、
--- PUBLIC・anon・authenticated から剥奪したうえで service_role へ明示的に GRANT する。
+-- consume_auth_attempt と同じ理由で、剥奪したうえで service_role へ明示 GRANT する。
 REVOKE EXECUTE ON FUNCTION public.reset_auth_attempt(TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.reset_auth_attempt(TEXT) TO service_role;
 
--- ============================================================
--- 運用: 古い行の削除
--- ============================================================
---
--- 期限切れの行が残っていても consume_auth_attempt が窓を切り直すため
--- レート制限の判定自体には影響しないが、放置するとテーブルが肥大化する。
--- 定期的に（手動または cron で）以下を実行して古い行を削除すること。
---
+-- === 運用: 古い行の削除 ===
+-- 期限切れの行が残っても consume_auth_attempt が窓を切り直すため判定には影響しないが、
+-- 放置するとテーブルが肥大化する。定期的に（手動または cron で）以下を実行する。
 -- DELETE FROM public."T_AUTH_ATTEMPT" WHERE window_start < NOW() - INTERVAL '1 day';
